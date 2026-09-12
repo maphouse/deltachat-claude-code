@@ -206,6 +206,7 @@ class AgentBot:
             transcript = transcribe(dst)
             if transcript and transcript != NOT_INSTALLED:
                 log.info("transcribed voice memo: %s", transcript[:100])
+                snapshot.chat.send_text(f"🎤 {transcript}")
                 prefix = f"[voice memo transcription]\n{transcript}"
                 return (prefix + "\n\n" + text) if text else prefix
             if transcript == NOT_INSTALLED:

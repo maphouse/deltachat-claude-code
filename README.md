@@ -1,9 +1,9 @@
 # deltachat-claude-code
 
-A Delta Chat portal to the [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
-CLI on any machine you own. Each chat is an independent Claude subprocess with
-filesystem access, bash, git, tools, and slash commands — identical to sitting at
-the terminal, but from your phone.
+A Delta Chat portal to the Claude Code CLI on any machine you own. Each chat is
+an independent Claude subprocess with filesystem access, bash, git, tools, and
+slash commands — identical to sitting at the terminal, but through Delta Chat on
+any device.
 
 Unlike claude.ai/code, which runs in an ephemeral cloud sandbox, this runs on
 your actual machine — your repos, your running services, your databases, your
@@ -15,6 +15,21 @@ full Claude Code access from anywhere.
 The package is internally called **agentbot** — you'll see that name in file
 paths, systemd units, and the sections below.
 
+## Contents
+
+- [Screenshots](#screenshots)
+- [Why](#why)
+- [Features](#features)
+- [Architecture](#architecture)
+- [Prerequisites](#prerequisites)
+- [Setup](#setup)
+- [Commands](#commands)
+- [Project chats](#project-chats)
+- [Security](#security)
+- [Resource usage](#resource-usage)
+- [Limits](#limits)
+- [Known limitations](#known-limitations)
+
 ## Screenshots
 
 | Bash output | Voice memo | Conversation | Git workflow |
@@ -24,67 +39,65 @@ paths, systemd units, and the sections below.
 
 ## Why
 
-A Delta Chat bot that proxies full Claude Code CLI sessions — not an API
-wrapper, not a chatbot skin, but the real thing over a chat transport.
+A [Delta Chat](https://delta.chat) bot that proxies full
+[Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI sessions —
+not an API wrapper, not a chatbot skin, but the real thing over a chat transport.
 
-### It's not an API wrapper
+- **It's not an API wrapper.** Most chat-to-AI bots call
+  `anthropic.messages.create` and relay the response. Agentbot shells out to the
+  actual `claude` CLI binary. That means you get everything a terminal session
+  gets: file editing, bash execution, git operations, multi-step tool chains,
+  code review, subagents, CLAUDE.md project context, skills, and the full
+  slash-command surface. The bot is a transport layer, not a reimplementation.
 
-Most chat-to-AI bots call `anthropic.messages.create` and relay the response.
-Agentbot shells out to the actual `claude` CLI binary. That means you get
-everything a terminal session gets: file editing, bash execution, git operations,
-multi-step tool chains, code review, subagents, CLAUDE.md project context, skills,
-and the full slash-command surface. The bot is a transport layer, not a
-reimplementation.
+- **Your prompts stay on your machine.** When you use a Telegram or Discord bot,
+  every message — your prompts, your code context, your file contents — routes
+  through that platform's servers. Agentbot runs on hardware you own, and Delta
+  Chat is email under the hood: messages travel between your device and a
+  [chatmail](https://chatmail.at) relay. No third-party platform sees your
+  conversation. If you're sending prompts that reference proprietary code,
+  credentials paths, or infrastructure details, this matters.
 
-### Your prompts stay on your machine
+- **No account, no phone number, no platform.** Delta Chat doesn't require a
+  signup, a phone number, or a platform account. You install the app, it
+  generates a chatmail address, and you're chatting. No Terms of Service for a
+  chat platform you don't care about, no 2FA enrollment, no contact list upload.
+  This is the lowest-friction path from "I have a server" to "I'm talking to it
+  from my phone." Telegram, Discord, and Signal all require more onboarding than
+  the bot itself.
 
-When you use a Telegram or Discord bot, every message — your prompts, your code
-context, your file contents — routes through that platform's servers. Agentbot
-runs on hardware you own, and Delta Chat is email under the hood: messages travel
-between your device and a [chatmail](https://chatmail.at) relay. No third-party
-platform sees your conversation. If you're sending prompts that reference
-proprietary code, credentials paths, or infrastructure details, this matters.
+- **Simple enough to trust.** The entire bot is ~400 lines of Python across
+  seven files. No frameworks, no containers, no build step, no dependencies
+  beyond `deltachat-rpc-client` and `pillow`. You can read every line in twenty
+  minutes. It runs as a systemd service. If it breaks,
+  `journalctl -u agentbot -f` tells you why.
 
-### No account, no phone number, no platform
+## Features
 
-Delta Chat doesn't require a signup, a phone number, or a platform account. You
-install the app, it generates a chatmail address, and you're chatting. No Terms of
-Service for a chat platform you don't care about, no 2FA enrollment, no contact
-list upload. This is the lowest-friction path from "I have a server" to "I'm
-talking to it from my phone." Telegram, Discord, and Signal all require more
-onboarding than the bot itself.
+- **Cumulative transcript.** Claude Code sessions are ephemeral — they live in a
+  terminal that scrolls away, and resuming one drops you into the middle of a
+  context window with no readable history. Agentbot turns every session into a
+  scrollable chat thread. Days of work on a project accumulate as a single,
+  searchable conversation you can scroll back through. For long-running projects,
+  this becomes the most useful record of what was done, what was decided, and
+  why — more readable than git log, more complete than commit messages. The Delta
+  Chat thread *is* the project diary.
 
-### Cumulative transcript
+- **Session portability.** A session started from your phone can be resumed from
+  a terminal (`claude --resume <id>`), and vice versa. The underlying `.jsonl`
+  session file is the same one Claude Code uses natively. You're not locked into
+  the chat interface; it's just another way in.
 
-Claude Code sessions are ephemeral — they live in a terminal that scrolls away,
-and resuming one drops you into the middle of a context window with no readable
-history. Agentbot turns every session into a scrollable chat thread. Days of work
-on a project accumulate as a single, searchable conversation you can scroll back
-through. For long-running projects, this becomes the most useful record of what
-was done, what was decided, and why — more readable than git log, more complete
-than commit messages. The Delta Chat thread *is* the project diary.
+- **Voice memos.** With optional
+  [faster-whisper](https://github.com/SYSTRAN/faster-whisper) integration, you
+  can send voice memos and they'll be transcribed before reaching Claude. The bot
+  echoes the transcription back to you first, so you can verify what Claude
+  received and correct any mistakes. If faster-whisper isn't installed, the bot
+  tells you how to enable it instead of failing silently.
 
-### Session portability
-
-A session started from your phone can be resumed from a terminal
-(`claude --resume <id>`), and vice versa. The underlying `.jsonl` session file is
-the same one Claude Code uses natively. You're not locked into the chat interface;
-it's just another way in.
-
-### Voice memos
-
-With optional [faster-whisper](https://github.com/SYSTRAN/faster-whisper)
-integration, you can send voice memos and they'll be transcribed before reaching
-Claude. The bot echoes the transcription back to you first, so you can verify
-what Claude received and correct any mistakes. If faster-whisper isn't installed,
-the bot tells you how to enable it instead of failing silently.
-
-### Simple enough to trust
-
-The entire bot is ~400 lines of Python across seven files. No frameworks, no
-containers, no build step, no dependencies beyond `deltachat-rpc-client` and
-`pillow`. You can read every line in twenty minutes. It runs as a systemd service.
-If it breaks, `journalctl -u agentbot -f` tells you why.
+- **Project chats.** Use `/commission <name>` to create a dedicated group chat
+  for a project. Each commissioned chat gets its own session, working directory,
+  and randomly generated identicon avatar.
 
 ## Architecture
 

@@ -1,0 +1,28 @@
+# Delta Chat addresses allowed to use the bot. This is the only access
+# control — the bot runs with bypassPermissions, so this list is load-bearing.
+admin_addresses = ["you@example.com"]
+
+# Filesystem roots the bot is allowed to operate in.
+allowed_roots = ["/home/you"]
+
+# Default working directory for new sessions.
+default_cwd = "/home/you"
+
+# Leave empty to let each project's .claude/settings*.json choose the model.
+# Set a model name here to force one globally (e.g. "sonnet", "opus").
+default_model = ""
+
+# Permission mode for Claude Code sessions. "bypassPermissions" skips all
+# confirmation prompts — only safe because admin_addresses gates access.
+default_permission_mode = "bypassPermissions"
+
+# Max concurrent Claude Code subprocesses. Oldest idle session is evicted
+# when this limit is reached.
+max_live_sessions = 3
+
+# Minutes of inactivity before a session subprocess is terminated.
+# The session can still be resumed on the next message.
+idle_timeout_min = 30
+
+# Show tool calls and thinking in chat messages.
+verbose_tools = true

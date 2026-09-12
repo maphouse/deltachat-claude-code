@@ -1,0 +1,6 @@
+deltachat-rpc-client>=1.0
+deltachat-rpc-server>=1.0
+pillow>=10.0
+
+# Optional: voice memo transcription. Omit if you don't need it.
+# faster-whisper>=1.0

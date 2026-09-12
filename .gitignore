@@ -1,0 +1,7 @@
+accounts/
+*.db
+__pycache__/
+avatars/
+.agentbot-inbox/
+config.toml
+*.pyc

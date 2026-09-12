@@ -1,0 +1,16 @@
+[Unit]
+Description=agentbot — Claude Code sessions over Delta Chat
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=youruser
+Environment=HOME=/home/youruser
+WorkingDirectory=/path/to/parent-of-agentbot
+ExecStart=/path/to/venv/bin/python3 -m agentbot
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

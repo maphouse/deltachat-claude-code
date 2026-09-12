@@ -15,6 +15,13 @@ full Claude Code access from anywhere.
 The package is internally called **agentbot** — you'll see that name in file
 paths, systemd units, and the sections below.
 
+<p align="center">
+<img src="screenshots/bash-output.png" width="240" alt="Bash output in a project chat" />
+<img src="screenshots/voice-memo.png" width="240" alt="Voice memo transcription" />
+<img src="screenshots/conversation.png" width="240" alt="Multi-turn conversation" />
+<img src="screenshots/git-workflow.png" width="240" alt="Git commit workflow" />
+</p>
+
 ## Why
 
 A Delta Chat bot that proxies full Claude Code CLI sessions — not an API

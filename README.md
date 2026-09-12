@@ -74,16 +74,19 @@ not an API wrapper, not a chatbot skin, but the real thing over a chat transport
 
 ## Features
 
-- **Cumulative transcript.** Claude Code sessions are ephemeral — they live in a
-  terminal that scrolls away, and resuming one drops you into the middle of a
-  context window with no readable history. Agentbot turns every session into a
-  scrollable chat thread. Days of work on a project accumulate as a single,
-  searchable conversation you can scroll back through. For long-running projects,
-  this becomes the most useful record of what was done, what was decided, and
-  why — more readable than git log, more complete than commit messages. The Delta
-  Chat thread *is* the project diary.
+- **Project-based chats.** Use `/commission <name>` to create a dedicated group chat
+  for a project. Each commissioned chat gets its own session, working directory,
+  and randomly generated identicon avatar.
 
-- **Session portability.** A session started from your phone can be resumed from
+- **Cumulative chat transcripts.** Claude Code sessions are ephemeral: they live in a
+  terminal that scrolls away. A project conversation turns every session into a
+  scrollable chat thread. Days of work on a project accumulate as a single,
+  searchable conversation. For long-running projects,
+  this becomes the most useful record of what was done, what was decided, and
+  why — more readable than git log, more rich than commit messages. The Delta
+  Chat thread *is* your project diary.
+
+- **Session portability.** A session started from your phone can be viewed from another device you have Delta Chat installed on, or resumed from
   a terminal (`claude --resume <id>`), and vice versa. The underlying `.jsonl`
   session file is the same one Claude Code uses natively. You're not locked into
   the chat interface; it's just another way in.
@@ -93,11 +96,9 @@ not an API wrapper, not a chatbot skin, but the real thing over a chat transport
   can send voice memos and they'll be transcribed before reaching Claude. The bot
   echoes the transcription back to you first, so you can verify what Claude
   received and correct any mistakes. If faster-whisper isn't installed, the bot
-  tells you how to enable it instead of failing silently.
+  tells you how to enable it instead of failing silently. Attachments are saved to `.agentbot-inbox/` in the session's working directory.
 
-- **Project chats.** Use `/commission <name>` to create a dedicated group chat
-  for a project. Each commissioned chat gets its own session, working directory,
-  and randomly generated identicon avatar.
+- **Screenshots.** When using Claude Code on a VM, it can be cumbersome to transmit screenshots. Using it through a Delta Chat interface makes image attachments easy to send for processing by Claude Code. Attachments are saved to `.agentbot-inbox/` in the session's working directory.
 
 ## Architecture
 
@@ -113,14 +114,39 @@ transcribe.py   optional faster-whisper voice memo transcription
 provision.py    one-time setup: creates chatmail account, avatar, systemd unit
 ```
 
-## Prerequisites
+## System requirements
+
+### Prerequisites
 
 - A Linux machine with [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
   installed and authenticated (`claude` on your PATH)
 - Python 3.11+
 - [Delta Chat](https://delta.chat) on your phone (or any device)
 
-## Setup
+### Resource usage
+
+The bot itself is lightweight (~20 MB RSS). The cost is in the Claude Code
+subprocesses it manages — each one is a full Node.js process.
+
+| Component | RAM | Notes |
+|---|---|---|
+| agentbot (Python) | ~20 MB | Always resident while the service is running |
+| Each Claude Code session | ~300 MB | One per active chat; idle sessions are reaped |
+| faster-whisper (optional) | ~200 MB | Loaded per transcription, then released |
+
+With the default `max_live_sessions = 3`, peak usage is roughly **1 GB** (bot +
+3 sessions). Idle-reaped sessions release their memory; sending a new message
+respawns the subprocess.
+
+**Minimum:** 2 GB free RAM is comfortable for typical use (1-2 concurrent
+sessions). Whisper memory is transient — it loads for each voice memo and
+releases after. Machines with 4 GB+ total RAM should have no issues.
+
+The bot uses negligible CPU when idle. CPU spikes briefly when Claude Code
+processes a turn, but the actual inference happens on Anthropic's servers — your
+machine just runs the tool calls (bash, file I/O, git).
+
+## How to setup
 
 ```bash
 git clone https://github.com/maphouse/deltachat-claude-code
@@ -146,7 +172,7 @@ python3 provision.py
 Provisioning prints the bot's chatmail address. Open Delta Chat on your phone,
 tap "New Chat," and enter that address. Send any message to start a session.
 
-### Running
+### Running as a service
 
 ```bash
 # Foreground (for testing)
@@ -157,9 +183,22 @@ sudo systemctl enable --now agentbot.service
 journalctl -u agentbot -f   # watch logs
 ```
 
-## Commands
+## Using Claude Code through the chat
 
-### Session control
+Any `/command` not listed below is forwarded to Claude Code as-is — so
+`/code-review`, `/security-review`, `/init`, `/compact`, and all other Claude Code
+slash commands work.
+
+### Comissionning chats
+
+Use `/commission <name> [dir]` to create a dedicated group chat for a project.
+Each commissioned chat gets its own session, working directory, and randomly
+generated identicon avatar. This is how you keep multiple long-running projects
+separate.
+
+### Session control inside a chat
+
+These commands control the Claude Code session from inside a persistent chat.
 
 | Command | What it does |
 |---|---|
@@ -187,20 +226,7 @@ journalctl -u agentbot -f   # watch logs
 |---|---|
 | `/usage` | Session, today, and weekly stats (turns, tokens, context fill) |
 | `/help` | All bot commands plus Claude Code's own command list |
-| `/commission <name> [dir]` | Create a new group chat bound to a project directory |
 
-### Passthrough
-
-Any `/command` not listed above is forwarded to Claude Code as-is — so
-`/code-review`, `/security-review`, `/init`, `/compact`, and all other Claude Code
-slash commands work.
-
-## Project chats
-
-Use `/commission <name> [dir]` to create a dedicated group chat for a project.
-Each commissioned chat gets its own session, working directory, and randomly
-generated identicon avatar. This is how you keep multiple long-running projects
-separate — the pinboard2 chat doesn't share context with the basemaps chat.
 
 ## Security
 
@@ -210,41 +236,17 @@ without confirmation. This is deliberate — confirmation prompts can't work ove
 chat — but it means the allowlist is load-bearing. Only add addresses you trust
 with full shell access to the machine.
 
-## Resource usage
+## To note
 
-The bot itself is lightweight (~20 MB RSS). The cost is in the Claude Code
-subprocesses it manages — each one is a full Node.js process.
-
-| Component | RAM | Notes |
-|---|---|---|
-| agentbot (Python) | ~20 MB | Always resident while the service is running |
-| Each Claude Code session | ~300 MB | One per active chat; idle sessions are reaped |
-| faster-whisper (optional) | ~200 MB | Loaded per transcription, then released |
-
-With the default `max_live_sessions = 3`, peak usage is roughly **1 GB** (bot +
-3 sessions). Idle-reaped sessions release their memory; sending a new message
-respawns the subprocess.
-
-**Minimum:** 2 GB free RAM is comfortable for typical use (1-2 concurrent
-sessions). Whisper memory is transient — it loads for each voice memo and
-releases after. Machines with 4 GB+ total RAM should have no issues.
-
-The bot uses negligible CPU when idle. CPU spikes briefly when Claude Code
-processes a turn, but the actual inference happens on Anthropic's servers — your
-machine just runs the tool calls (bash, file I/O, git).
-
-## Limits
-
-- **Concurrent subprocess cap** (default 3). You can have unlimited project chats,
-  but only this many can have a live Claude Code process at once. If you message a
+- **Concurrent subprocess cap** (default 3). You can have unlimited chat groups,
+  but only 3 can have a live Claude Code process at once. You can adjust this maximum
+  at runtime with `/maxsessions <n>`, or permanently in `config.toml`. If you message a
   chat beyond the limit, the least-recently-used subprocess is terminated to make
   room. Nothing is lost — the session resumes automatically on the next message.
-  Adjust at runtime with `/maxsessions <n>`, or permanently in `config.toml`.
 - **Idle reaping** (default 30 minutes). Inactive sessions are terminated to free
   memory (~300 MB per subprocess). The session resumes transparently when you send
   the next message. Configure with `idle_timeout_min` in `config.toml`.
-- Messages split at 4000 chars
-- Attachments saved to `.agentbot-inbox/` in the session's working directory
+- Messages are split at 4000 chars
 
 ## Known limitations
 

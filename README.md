@@ -12,6 +12,9 @@ full Claude Code access from anywhere.
 
 ~400 lines of Python. No frameworks, no containers, no build step.
 
+The package is internally called **agentbot** — you'll see that name in file
+paths, systemd units, and the sections below.
+
 ## Why
 
 A Delta Chat bot that proxies full Claude Code CLI sessions — not an API
@@ -65,7 +68,9 @@ it's just another way in.
 
 With optional [faster-whisper](https://github.com/SYSTRAN/faster-whisper)
 integration, you can send voice memos and they'll be transcribed before reaching
-Claude. Useful for dictating tasks while away from a keyboard.
+Claude. The bot echoes the transcription back to you first, so you can verify
+what Claude received and correct any mistakes. If faster-whisper isn't installed,
+the bot tells you how to enable it instead of failing silently.
 
 ### Simple enough to trust
 

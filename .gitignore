@@ -5,3 +5,4 @@ avatars/
 .agentbot-inbox/
 config.toml
 *.pyc
+avatar.png

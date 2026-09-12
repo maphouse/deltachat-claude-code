@@ -17,10 +17,26 @@ paths, systemd units, and the sections below.
 
 ## Screenshots
 
-| Bash output | Voice memo | Conversation | Git workflow |
-|:---:|:---:|:---:|:---:|
-| ![Bash output](screenshots/bash-output.png) | ![Voice memo](screenshots/voice-memo.png) | ![Conversation](screenshots/conversation.png) | ![Git workflow](screenshots/git-workflow.png) |
-| Tool output in a project chat | Transcription echo before Claude responds | Multi-turn conversation with file analysis | Committing and pushing from chat |
+<table>
+<tr>
+<td align="center"><b>Bash output</b></td>
+<td align="center"><b>Voice memo</b></td>
+<td align="center"><b>Conversation</b></td>
+<td align="center"><b>Git workflow</b></td>
+</tr>
+<tr>
+<td><img src="screenshots/bash-output.png" width="240" /></td>
+<td><img src="screenshots/voice-memo.png" width="240" /></td>
+<td><img src="screenshots/conversation.png" width="240" /></td>
+<td><img src="screenshots/git-workflow.png" width="240" /></td>
+</tr>
+<tr>
+<td align="center">Tool output in a project chat</td>
+<td align="center">Transcription echo before Claude responds</td>
+<td align="center">Multi-turn conversation with file analysis</td>
+<td align="center">Committing and pushing from chat</td>
+</tr>
+</table>
 
 ## Why
 

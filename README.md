@@ -1,9 +1,14 @@
-# agentbot
+# deltachat-claude-code
 
-A Delta Chat bot that gives you full [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
-sessions from your phone. Each chat is an independent Claude subprocess with
+A Delta Chat portal to the [Claude Code](https://docs.anthropic.com/en/docs/claude-code)
+CLI on any machine you own. Each chat is an independent Claude subprocess with
 filesystem access, bash, git, tools, and slash commands — identical to sitting at
-the terminal, but from anywhere.
+the terminal, but from your phone.
+
+Unlike claude.ai/code, which runs in an ephemeral cloud sandbox, this runs on
+your actual machine — your repos, your running services, your databases, your
+SSH keys. Install it on a dev server, a home lab box, or a laptop, and you have
+full Claude Code access from anywhere.
 
 ~400 lines of Python. No frameworks, no containers, no build step.
 

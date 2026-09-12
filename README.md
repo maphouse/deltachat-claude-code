@@ -17,13 +17,11 @@ paths and systemd units.
 - [Why](#why)
 - [Features](#features)
 - [Architecture](#architecture)
-- [Prerequisites](#prerequisites)
-- [Setup](#setup)
-- [Commands](#commands)
-- [Project chats](#project-chats)
+- [System requirements](#system-requirements)
+- [How to setup](#how-to-setup)
+- [Using Claude Code through the chat](#using-claude-code-through-the-chat)
 - [Security](#security)
-- [Resource usage](#resource-usage)
-- [Limits](#limits)
+- [To note](#to-note)
 - [Known limitations](#known-limitations)
 
 ## Screenshots
@@ -184,7 +182,7 @@ Any `/command` not listed below is forwarded to Claude Code as-is — so
 `/code-review`, `/security-review`, `/init`, `/compact`, and all other Claude Code
 slash commands work.
 
-### Comissionning chats
+### Commissioning chats
 
 Use `/commission <name> [dir]` to create a dedicated group chat for a project.
 Each commissioned chat gets its own session, working directory, and randomly

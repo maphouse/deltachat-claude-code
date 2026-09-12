@@ -10,7 +10,7 @@ from deltachat_rpc_client import Client, DeltaChat, Rpc, events
 from . import commands, store
 from .render import ChatRenderer
 from .session import Session, SessionManager
-from .transcribe import transcribe
+from .transcribe import transcribe, NOT_INSTALLED
 
 BOT_DIR = Path(__file__).resolve().parent
 ACCOUNTS_DIR = str(BOT_DIR / "accounts")
@@ -201,7 +201,13 @@ class AgentBot:
         AUDIO_EXTS = {".ogg", ".mp3", ".wav", ".m4a", ".flac", ".opus", ".webm"}
         if dst.suffix.lower() in AUDIO_EXTS:
             transcript = transcribe(dst)
-            if transcript:
+            if transcript == NOT_INSTALLED:
+                chat.send_text(
+                    "voice memo received but faster-whisper is not installed — "
+                    "run `pip install faster-whisper` in the bot's venv to "
+                    "enable transcription"
+                )
+            elif transcript:
                 log.info("transcribed voice memo: %s", transcript[:100])
                 prefix = f"[voice memo transcription]\n{transcript}"
                 return (prefix + "\n\n" + text) if text else prefix

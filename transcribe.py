@@ -4,6 +4,7 @@ from pathlib import Path
 log = logging.getLogger("agentbot.transcribe")
 
 _available = None
+NOT_INSTALLED = "__not_installed__"
 
 
 def _check_available() -> bool:
@@ -18,9 +19,13 @@ def _check_available() -> bool:
     return _available
 
 
+def is_available() -> bool:
+    return _check_available()
+
+
 def transcribe(audio_path: Path) -> str | None:
     if not _check_available():
-        return None
+        return NOT_INSTALLED
     try:
         from faster_whisper import WhisperModel
         model = WhisperModel("base", device="cpu", compute_type="int8")

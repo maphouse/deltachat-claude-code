@@ -106,8 +106,9 @@ python3 -m venv venv
 source venv/bin/activate
 pip install -r requirements.txt
 
-# Optional: voice memo transcription
-pip install faster-whisper
+# Optional: voice memo transcription (sends a helpful message if
+# you skip this and later send a voice memo)
+pip install -r requirements-voice.txt
 
 # Configure
 cp config.example.toml config.toml

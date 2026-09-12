@@ -15,12 +15,12 @@ full Claude Code access from anywhere.
 The package is internally called **agentbot** — you'll see that name in file
 paths, systemd units, and the sections below.
 
-<p align="center">
-<img src="screenshots/bash-output.png" width="240" alt="Bash output in a project chat" />
-<img src="screenshots/voice-memo.png" width="240" alt="Voice memo transcription" />
-<img src="screenshots/conversation.png" width="240" alt="Multi-turn conversation" />
-<img src="screenshots/git-workflow.png" width="240" alt="Git commit workflow" />
-</p>
+## Screenshots
+
+| Bash output | Voice memo | Conversation | Git workflow |
+|:---:|:---:|:---:|:---:|
+| ![Bash output](screenshots/bash-output.png) | ![Voice memo](screenshots/voice-memo.png) | ![Conversation](screenshots/conversation.png) | ![Git workflow](screenshots/git-workflow.png) |
+| Tool output in a project chat | Transcription echo before Claude responds | Multi-turn conversation with file analysis | Committing and pushing from chat |
 
 ## Why
 

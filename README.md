@@ -1,14 +1,10 @@
 # deltachat-claude-code
 
-A Delta Chat portal to the Claude Code CLI on any machine you own. Each chat is
+A Delta Chat portal to the full Claude Code CLI. Each chat is
 an independent Claude subprocess with filesystem access, bash, git, tools, and
-slash commands — identical to sitting at the terminal, but through Delta Chat on
-any device.
-
-Unlike claude.ai/code, which runs in an ephemeral cloud sandbox, this runs on
-your actual machine — your repos, your running services, your databases, your
-SSH keys. Install it on a dev server, a home lab box, or a laptop, and you have
-full Claude Code access from anywhere.
+slash commands — identical to sitting at the terminal, but through Delta Chat from
+any device. Install it on a dev server, a home lab box, or a laptop, and you have
+full Claude Code access from anywhere. Send voice memos, screenshots, and browse your full chat history as you would in any other chat.
 
 ~400 lines of Python. No frameworks, no containers, no build step.
 
@@ -32,10 +28,9 @@ paths and systemd units.
 
 ## Screenshots
 
-| Bash output | Voice memo | Conversation | Git workflow |
+| Tool output in a project chat |Transcription echo before Claude responds | Multi-turn conversation with file analysis  |Committing and pushing from chat |
 |:---:|:---:|:---:|:---:|
 | ![Bash output](screenshots/bash-output.png) | ![Voice memo](screenshots/voice-memo.png) | ![Conversation](screenshots/conversation.png) | ![Git workflow](screenshots/git-workflow.png) |
-| Tool output in a project chat | Transcription echo before Claude responds | Multi-turn conversation with file analysis | Committing and pushing from chat |
 
 ## Why
 

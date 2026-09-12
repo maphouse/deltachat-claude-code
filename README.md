@@ -12,8 +12,8 @@ full Claude Code access from anywhere.
 
 ~400 lines of Python. No frameworks, no containers, no build step.
 
-The package is internally called **agentbot** — you'll see that name in file
-paths, systemd units, and the sections below.
+Internally, the package is code named **agentbot** — you'll see that name in file
+paths and systemd units.
 
 ## Contents
 
@@ -44,7 +44,7 @@ A [Delta Chat](https://delta.chat) bot that proxies full
 not an API wrapper, not a chatbot skin, but the real thing over a chat transport.
 
 - **It's not an API wrapper.** Most chat-to-AI bots call
-  `anthropic.messages.create` and relay the response. Agentbot shells out to the
+  `anthropic.messages.create` and relay the response. This bot shells out to the
   actual `claude` CLI binary. That means you get everything a terminal session
   gets: file editing, bash execution, git operations, multi-step tool chains,
   code review, subagents, CLAUDE.md project context, skills, and the full
@@ -52,7 +52,7 @@ not an API wrapper, not a chatbot skin, but the real thing over a chat transport
 
 - **Your prompts stay on your machine.** When you use a Telegram or Discord bot,
   every message — your prompts, your code context, your file contents — routes
-  through that platform's servers. Agentbot runs on hardware you own, and Delta
+  through that platform's servers. This bot runs on hardware you own, and Delta
   Chat is email under the hood: messages travel between your device and a
   [chatmail](https://chatmail.at) relay. No third-party platform sees your
   conversation. If you're sending prompts that reference proprietary code,

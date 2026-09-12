@@ -152,6 +152,9 @@ class AgentBot:
 
         if snapshot.file:
             text = self._handle_attachment(chat_id, snapshot, text)
+            if not text:
+                renderer.react_done()
+                return
 
         parsed = commands.classify(text) if text else None
         if parsed:
@@ -201,16 +204,24 @@ class AgentBot:
         AUDIO_EXTS = {".ogg", ".mp3", ".wav", ".m4a", ".flac", ".opus", ".webm"}
         if dst.suffix.lower() in AUDIO_EXTS:
             transcript = transcribe(dst)
-            if transcript == NOT_INSTALLED:
-                chat.send_text(
-                    "voice memo received but faster-whisper is not installed — "
-                    "run `pip install faster-whisper` in the bot's venv to "
-                    "enable transcription"
-                )
-            elif transcript:
+            if transcript and transcript != NOT_INSTALLED:
                 log.info("transcribed voice memo: %s", transcript[:100])
                 prefix = f"[voice memo transcription]\n{transcript}"
                 return (prefix + "\n\n" + text) if text else prefix
+            if transcript == NOT_INSTALLED:
+                snapshot.chat.send_text(
+                    "🎤 Voice memo received but I can't transcribe it — "
+                    "faster-whisper is not installed.\n\n"
+                    "To enable voice transcription, install it in the bot's venv:\n"
+                    "  pip install -r requirements-voice.txt\n\n"
+                    "Then restart the bot. In the meantime, please type your message."
+                )
+            else:
+                snapshot.chat.send_text(
+                    "🎤 Voice memo received but transcription failed. "
+                    "Please type your message instead."
+                )
+            return text or ""
 
         suffix = f"\n[attached: {dst}]"
         return (text + suffix) if text else f"[attached: {dst}]"

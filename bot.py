@@ -161,7 +161,8 @@ class AgentBot:
             cmd, args = parsed
             result = commands.handle(cmd, args, chat_id, chat, self)
             if result is not None:
-                chat.send_text(result)
+                if result:
+                    chat.send_text(result)
                 renderer.react_done()
                 return
 

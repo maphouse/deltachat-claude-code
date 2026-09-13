@@ -400,7 +400,7 @@ def _cmd_send(args, chat_id, chat, bot):
         chat.send_file(path)
     except Exception as e:
         return f"send failed: {e}"
-    return None
+    return ""
 
 
 def _check_root(path: str, bot) -> bool:

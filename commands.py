@@ -329,6 +329,7 @@ def _cmd_help(args, chat_id, chat, bot):
         "",
         "info:",
         "  /usage             — cost and context stats",
+        "  /send <path>       — send a file to this chat",
         "  /commission <name> [dir] — new chat for a project",
         "  /help              — this message",
         "",
@@ -383,6 +384,25 @@ def _cmd_commission(args, chat_id, chat, bot):
         return f"commission failed: {e}"
 
 
+def _cmd_send(args, chat_id, chat, bot):
+    if not args:
+        return "usage: /send <path>"
+    path = args.strip()
+    binding = store.get_binding(chat_id)
+    if not os.path.isabs(path) and binding:
+        path = os.path.join(binding["cwd"], path)
+    path = os.path.realpath(path)
+    if not _check_root(path, bot):
+        return f"path not under allowed_roots: {path}"
+    if not os.path.isfile(path):
+        return f"file not found: {path}"
+    try:
+        chat.send_file(path)
+    except Exception as e:
+        return f"send failed: {e}"
+    return None
+
+
 def _check_root(path: str, bot) -> bool:
     path = os.path.realpath(path)
     for root in bot.config.get("allowed_roots", []):
@@ -428,4 +448,5 @@ HANDLERS = {
     "help": _cmd_help,
     "commission": _cmd_commission,
     "maxsessions": _cmd_maxsessions,
+    "send": _cmd_send,
 }

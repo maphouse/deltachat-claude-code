@@ -91,6 +91,8 @@ not an API wrapper, not a chatbot skin, but the real thing over a chat transport
 
 - **Screenshots.** When using Claude Code on a VM, it can be cumbersome to transmit screenshots. Using it through a Delta Chat interface makes image attachments easy to send for processing by Claude Code. Attachments are saved to `.agentbot-inbox/` in the session's working directory.
 
+- **File delivery.** When Claude Code generates a file you want — an image, a PDF, a build artifact — use `/send <path>` to deliver it straight to your chat. Paths can be absolute or relative to the session's working directory.
+
 ## Architecture
 
 ```
@@ -216,6 +218,7 @@ These commands control the Claude Code session from inside a persistent chat.
 | Command | What it does |
 |---|---|
 | `/usage` | Session, today, and weekly stats (turns, tokens, context fill) |
+| `/send <path>` | Send a file (image, PDF, etc.) from the server to this chat |
 | `/help` | All bot commands plus Claude Code's own command list |
 
 
@@ -248,9 +251,9 @@ with full shell access to the machine.
 - **No interactive prompts.** The bot runs with `bypassPermissions` because
   confirmation dialogs can't work over chat. This is a security tradeoff,
   not a bug.
-- **Text only.** Claude Code artifacts, HTML previews, and image outputs
-  don't render in Delta Chat — you'll see the text description but not
-  the visual.
+- **No inline artifacts.** Claude Code artifacts and HTML previews don't
+  render in Delta Chat. Generated files (images, PDFs) can be delivered
+  to the chat with `/send <path>`.
 - **Some slash commands need a TTY.** `/config`, `/keybindings`, `/loop`,
   and `/schedule` are blocked because they require interactive terminal input.
 

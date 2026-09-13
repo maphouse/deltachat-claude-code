@@ -2,7 +2,7 @@
 
 A Delta Chat portal to the full Claude Code CLI. Each chat is
 an independent Claude subprocess with filesystem access, bash, git, tools, and
-slash commands — identical to sitting at the terminal, but through Delta Chat from
+slash commands — like sitting at the terminal, but through Delta Chat from
 any device. Install it on a dev server, a home lab box, or a laptop, and you have
 full Claude Code access from anywhere. Send voice memos, screenshots, and browse your full chat history as you would in any other chat.
 
@@ -59,11 +59,9 @@ not an API wrapper, not a chatbot skin, but the real thing over a chat transport
   from my phone." Telegram, Discord, and Signal all require more onboarding than
   the bot itself.
 
-- **Simple enough to trust.** The entire bot is ~400 lines of Python across
-  seven files. No frameworks, no containers, no build step, no dependencies
-  beyond `deltachat-rpc-client` and `pillow`. You can read every line in twenty
-  minutes. It runs as a systemd service. If it breaks,
-  `journalctl -u agentbot -f` tells you why.
+- **Small and readable.** ~400 lines of Python across seven files. No
+  frameworks, no containers, no build step, no dependencies beyond
+  `deltachat-rpc-client` and `pillow`. It runs as a systemd service.
 
 ## Features
 

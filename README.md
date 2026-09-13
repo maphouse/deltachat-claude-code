@@ -1,18 +1,19 @@
 # deltachat-claude-code
 
-A Delta Chat portal to the full Claude Code CLI. Each chat is
-an independent Claude subprocess with filesystem access, bash, git, tools, and
-slash commands — like sitting at the terminal, but through Delta Chat from
-any device. Install it on a dev server, a home lab box, or a laptop, and you have
-full Claude Code access from anywhere. Send voice memos, screenshots, reply to specific messages for context, and browse your full chat history as you would in any other chat.
-
-~400 lines of Python. No frameworks, no containers, no build step.
+A [Delta Chat](https://delta.chat) bot that proxies full
+[Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI sessions —
+not an API wrapper, not a chatbot skin, but the real `claude` binary over a chat
+transport. You get everything a terminal session gets: file editing, bash, git,
+multi-step tool chains, code review, subagents, CLAUDE.md context, and the full
+slash-command surface. Your prompts stay on your machine — Delta Chat is email
+under the hood, so no third-party platform sees your conversation. No signup, no
+phone number, no platform account: install the app, scan a QR code, start
+chatting. ~400 lines of Python, no frameworks, no containers, no build step.
 
 ## Contents
 
 - [Screenshots](#screenshots)
 - [Why](#why)
-- [Features](#features)
 - [Architecture](#architecture)
 - [System requirements](#system-requirements)
 - [How to setup](#how-to-setup)
@@ -29,73 +30,36 @@ full Claude Code access from anywhere. Send voice memos, screenshots, reply to s
 
 ## Why
 
-A [Delta Chat](https://delta.chat) bot that proxies full
-[Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI sessions —
-not an API wrapper, not a chatbot skin, but the real thing over a chat transport.
+- **Project-based chats.** Use `/commission <name>` to create a dedicated group
+  chat for a project. Each commissioned chat gets its own session, working
+  directory, and randomly generated identicon avatar.
 
-- **It's not an API wrapper.** Most chat-to-AI bots call
-  `anthropic.messages.create` and relay the response. This bot shells out to the
-  actual `claude` CLI binary. That means you get everything a terminal session
-  gets: file editing, bash execution, git operations, multi-step tool chains,
-  code review, subagents, CLAUDE.md project context, skills, and the full
-  slash-command surface. The bot is a transport layer, not a reimplementation.
+- **Cumulative chat transcripts.** Claude Code sessions are ephemeral: they live
+  in a terminal that scrolls away. A project conversation turns every session
+  into a scrollable chat thread. Days of work on a project accumulate as a
+  single, searchable conversation — more readable than git log, richer than
+  commit messages. The Delta Chat thread *is* your project diary.
 
-- **Your prompts stay on your machine.** When you use a Telegram or Discord bot,
-  every message — your prompts, your code context, your file contents — routes
-  through that platform's servers. This bot runs on hardware you own, and Delta
-  Chat is email under the hood: messages travel between your device and a
-  [chatmail](https://chatmail.at) relay. No third-party platform sees your
-  conversation. If you're sending prompts that reference proprietary code,
-  credentials paths, or infrastructure details, this matters.
+- **Reply-to context.** When you reply to a specific message in the chat, the
+  quoted text is forwarded to Claude as context. Instead of re-explaining what
+  you're referring to, just swipe-reply on the message and add your follow-up.
+  This is something a terminal can't do — you can't "reply to" a specific line
+  of output.
 
-- **No account, no phone number, no platform.** Delta Chat doesn't require a
-  signup, a phone number, or a platform account. You install the app, it
-  generates a chatmail address, and you're chatting. No Terms of Service for a
-  chat platform you don't care about, no 2FA enrollment, no contact list upload.
-  This is the lowest-friction path from "I have a server" to "I'm talking to it
-  from my phone." Telegram, Discord, and Signal all require more onboarding than
-  the bot itself.
-
-- **Small and readable.** ~400 lines of Python across seven files. No
-  frameworks, no containers, no build step, no dependencies beyond
-  `deltachat-rpc-client` and `pillow`. It runs as a systemd service.
-
-## Features
-
-- **Project-based chats.** Use `/commission <name>` to create a dedicated group chat
-  for a project. Each commissioned chat gets its own session, working directory,
-  and randomly generated identicon avatar.
-
-- **Cumulative chat transcripts.** Claude Code sessions are ephemeral: they live in a
-  terminal that scrolls away. A project conversation turns every session into a
-  scrollable chat thread. Days of work on a project accumulate as a single,
-  searchable conversation. For long-running projects,
-  this becomes the most useful record of what was done, what was decided, and
-  why — more readable than git log, more rich than commit messages. The Delta
-  Chat thread *is* your project diary.
-
-- **Reply-to context.** When you reply to a specific message in the chat,
-  the quoted text is forwarded to Claude as context. Instead of re-explaining
-  what you're referring to, just swipe-reply on the message and add your
-  follow-up. This is something a terminal can't do — you can't "reply to" a
-  specific line of output. Delta Chat's threading gives the LLM conversational
-  context that the CLI interface lacks.
-
-- **Session portability.** A session started from your phone can be viewed from another device you have Delta Chat installed on, or resumed from
+- **Session portability.** A session started from your phone can be resumed from
   a terminal (`claude --resume <id>`), and vice versa. The underlying `.jsonl`
   session file is the same one Claude Code uses natively. You're not locked into
   the chat interface; it's just another way in.
 
 - **Voice memos.** With optional
-  [faster-whisper](https://github.com/SYSTRAN/faster-whisper) integration, you
-  can send voice memos and they'll be transcribed before reaching Claude. The bot
-  echoes the transcription back to you first, so you can verify what Claude
-  received and correct any mistakes. If faster-whisper isn't installed, the bot
-  tells you how to enable it instead of failing silently. Attachments are saved to `.agentbot-inbox/` in the session's working directory.
+  [faster-whisper](https://github.com/SYSTRAN/faster-whisper) integration, send
+  voice memos and they'll be transcribed before reaching Claude. The bot echoes
+  the transcription back so you can verify what Claude received.
 
-- **Screenshots.** When using Claude Code on a VM, it can be cumbersome to transmit screenshots. Using it through a Delta Chat interface makes image attachments easy to send for processing by Claude Code. Attachments are saved to `.agentbot-inbox/` in the session's working directory.
-
-- **File delivery.** When Claude Code generates a file you want — an image, a PDF, a build artifact — use `/send <path>` to deliver it straight to your chat. Paths can be absolute or relative to the session's working directory.
+- **Screenshots and file delivery.** Send images for Claude to analyze; use
+  `/send <path>` to deliver generated files (images, PDFs, build artifacts)
+  back to your chat. Attachments are saved to `.agentbot-inbox/` in the
+  session's working directory.
 
 ## Architecture
 

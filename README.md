@@ -9,6 +9,7 @@ slash-command surface. Your prompts stay on your machine — Delta Chat is email
 under the hood, so no third-party platform sees your conversation. No signup, no
 phone number, no platform account: install the app, scan a QR code, start
 chatting. ~400 lines of Python, no frameworks, no containers, no build step.
+See [why](#why) this is the best way to chat with Claude Code.
 
 ## Contents
 

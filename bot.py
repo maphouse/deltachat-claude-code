@@ -150,6 +150,10 @@ class AgentBot:
         renderer.set_inbound(snapshot.id)
         renderer.react_receipt()
 
+        quoted = getattr(snapshot, "quotedText", None) or getattr(snapshot, "quoted_text", None)
+        if quoted:
+            quoted = quoted.strip()
+
         if snapshot.file:
             text = self._handle_attachment(chat_id, snapshot, text)
             if not text:
@@ -165,6 +169,9 @@ class AgentBot:
                     chat.send_text(result)
                 renderer.react_done()
                 return
+
+        if quoted and text:
+            text = f"[replying to: \"{quoted}\"]\n{text}"
 
         session = self._ensure_session(chat_id, chat)
         if not session:

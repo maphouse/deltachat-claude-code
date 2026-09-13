@@ -4,7 +4,7 @@ A Delta Chat portal to the full Claude Code CLI. Each chat is
 an independent Claude subprocess with filesystem access, bash, git, tools, and
 slash commands — like sitting at the terminal, but through Delta Chat from
 any device. Install it on a dev server, a home lab box, or a laptop, and you have
-full Claude Code access from anywhere. Send voice memos, screenshots, and browse your full chat history as you would in any other chat.
+full Claude Code access from anywhere. Send voice memos, screenshots, reply to specific messages for context, and browse your full chat history as you would in any other chat.
 
 ~400 lines of Python. No frameworks, no containers, no build step.
 
@@ -76,6 +76,13 @@ not an API wrapper, not a chatbot skin, but the real thing over a chat transport
   this becomes the most useful record of what was done, what was decided, and
   why — more readable than git log, more rich than commit messages. The Delta
   Chat thread *is* your project diary.
+
+- **Reply-to context.** When you reply to a specific message in the chat,
+  the quoted text is forwarded to Claude as context. Instead of re-explaining
+  what you're referring to, just swipe-reply on the message and add your
+  follow-up. This is something a terminal can't do — you can't "reply to" a
+  specific line of output. Delta Chat's threading gives the LLM conversational
+  context that the CLI interface lacks.
 
 - **Session portability.** A session started from your phone can be viewed from another device you have Delta Chat installed on, or resumed from
   a terminal (`claude --resume <id>`), and vice versa. The underlying `.jsonl`

@@ -8,9 +8,6 @@ full Claude Code access from anywhere. Send voice memos, screenshots, reply to s
 
 ~400 lines of Python. No frameworks, no containers, no build step.
 
-Internally, the package is code named **agentbot** — you'll see that name in file
-paths and systemd units.
-
 ## Contents
 
 - [Screenshots](#screenshots)

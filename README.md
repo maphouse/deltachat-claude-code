@@ -1,20 +1,18 @@
-# deltachat-claude-code
+# deltachat-claude-code <img width="45" alt="social-preview" src="https://github.com/user-attachments/assets/91703ad9-b5ad-434b-aa85-237e5851266c" />
 
-A [Delta Chat](https://delta.chat) bot that proxies full
-[Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI sessions —
-not an API wrapper, not a chatbot skin, but the real `claude` binary over a chat
-transport. You get everything a terminal session gets: file editing, bash, git,
+Host a bot that proxies full
+[Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI sessions to any device via lightweight encrypted chat. This is not an API wrapper or a chatbot skin, it's the whole `claude` binary over a chat transport. Everything you get in a terminal session is bridged into an easy chat interface: file editing, bash, git,
 multi-step tool chains, code review, subagents, CLAUDE.md context, and the full
-slash-command surface. Your prompts stay on your machine — Delta Chat is email
-under the hood, so no third-party platform sees your conversation. No signup, no
-phone number, no platform account: install the app, scan a QR code, start
-chatting. ~400 lines of Python, no frameworks, no containers, no build step.
-See [why](#why) this is the best way to chat with Claude Code.
+slash-command surface.
+
+[Delta Chat](https://delta.chat) is the messenger of choice here: a decentralized, encrypted chat system with no signup and that requires no
+phone number, email or login: install it, add the bot as a contact, and start
+prompting. See [why](#why) this is the best way to interact with Claude Code.
 
 ## Contents
 
-- [Screenshots](#screenshots)
 - [Why](#why)
+- [Screenshots](#screenshots)
 - [Architecture](#architecture)
 - [System requirements](#system-requirements)
 - [How to setup](#how-to-setup)
@@ -23,29 +21,27 @@ See [why](#why) this is the best way to chat with Claude Code.
 - [To note](#to-note)
 - [Known limitations](#known-limitations)
 
-## Screenshots
-
-| Tool output in a project chat |Transcription echo before Claude responds | Multi-turn conversation with file analysis  |Committing and pushing from chat |
-|:---:|:---:|:---:|:---:|
-| ![Bash output](screenshots/bash-output.png) | ![Voice memo](screenshots/voice-memo.png) | ![Conversation](screenshots/conversation.png) | ![Git workflow](screenshots/git-workflow.png) |
-
 ## Why
 
-- **Project-based chats.** Use `/commission <name>` to create a dedicated group
-  chat for a project. Each commissioned chat gets its own session, working
-  directory, and randomly generated identicon avatar.
+- **Why Delta Chat?** Your prompts aren't stored anywhere but your machine. Delta Chat is
+  decentralized, encrypted email under the hood, so no third-party platform ever sees your
+  conversation. It also requires no account, no phone number, no signup: it's the lowest-friction path
+  between "I have a server" and "I'm talking to it from any device."
 
-- **Cumulative chat transcripts.** Claude Code sessions are ephemeral: they live
-  in a terminal that scrolls away. A project conversation turns every session
-  into a scrollable chat thread. Days of work on a project accumulate as a
-  single, searchable conversation — more readable than git log, richer than
-  commit messages. The Delta Chat thread *is* your project diary.
+- **Cumulative chat transcripts.** Claude Code session contexts are ephemeral: they live
+  in a terminal that scrolls away. A project conversation turns every project
+  into an infinitely scrollable, searchable chat thread, no matter how many sessions you created or /clear commands you used. The Delta Chat thread is a really useful project diary.
 
 - **Reply-to context.** When you reply to a specific message in the chat, the
   quoted text is forwarded to Claude as context. Instead of re-explaining what
   you're referring to, just swipe-reply on the message and add your follow-up.
   This is something a terminal can't do — you can't "reply to" a specific line
   of output.
+
+- **Project-based chats.** Use `/commission <name> <directory>` to create a dedicated group
+  chat for a project in a given folder. Each commissioned chat gets its own session and randomly generated identicon avatar.
+
+- **Vibe code with friends.** The bot is a Delta Chat contact like any other, and a commissioned group chat is just a group chat. Add your other contacts to a chat with the agent and work on a project together!
 
 - **Session portability.** A session started from your phone can be resumed from
   a terminal (`claude --resume <id>`), and vice versa. The underlying `.jsonl`
@@ -61,6 +57,14 @@ See [why](#why) this is the best way to chat with Claude Code.
   `/send <path>` to deliver generated files (images, PDFs, build artifacts)
   back to your chat. Attachments are saved to `.agentbot-inbox/` in the
   session's working directory.
+
+
+## Screenshots
+
+| Tool output in a project chat |Transcription echo before Claude responds | Multi-turn conversation with file analysis  |Committing and pushing from chat |
+|:---:|:---:|:---:|:---:|
+| ![Bash output](screenshots/bash-output.png) | ![Voice memo](screenshots/voice-memo.png) | ![Conversation](screenshots/conversation.png) | ![Git workflow](screenshots/git-workflow.png) |
+
 
 ## Architecture
 

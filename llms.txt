@@ -1,0 +1,44 @@
+# deltachat-claude-code
+
+Access Claude Code from your phone — full CLI sessions over encrypted chat, no signup, no terminal needed.
+
+> Run full Claude Code CLI sessions over Delta Chat — encrypted, decentralized, no signup required.
+
+This is not an API wrapper or chatbot skin. It bridges the real `claude` binary over Delta Chat, a decentralized encrypted messenger. Everything you get in a terminal — file editing, bash, git, multi-step tool chains, code review, subagents, CLAUDE.md context, and slash commands — works from your phone or any device.
+
+## Key features
+
+- Full Claude Code CLI over chat (not an API wrapper)
+- Encrypted and decentralized via Delta Chat (no third-party sees your prompts)
+- No signup, no phone number, no account — install Delta Chat and message the bot
+- Project-based chats with `/commission` — each project gets its own session and avatar
+- Voice memo transcription via faster-whisper
+- Reply-to context: swipe-reply on any message to reference it
+- Session portability: resume chat sessions in a terminal and vice versa
+- Image and file analysis; deliver generated files back to chat with `/send`
+- Concurrent session management with idle reaping
+- Runs as a systemd service on any Linux machine
+
+## Use cases
+
+- Access Claude Code from your phone, tablet, or any device without a terminal
+- Self-hosted AI coding assistant with end-to-end encryption
+- Collaborative coding: add friends to a project chat and work together
+- Mobile-first development workflow
+- Keep a searchable, scrollable project diary of all Claude Code interactions
+
+## Requirements
+
+- Linux machine with Claude Code installed and authenticated
+- Python 3.11+
+- Delta Chat on your device(s)
+
+## Links
+
+- Source: https://github.com/maphouse/deltachat-claude-code
+- Claude Code: https://docs.anthropic.com/en/docs/claude-code
+- Delta Chat: https://delta.chat
+
+## License
+
+MIT

@@ -49,6 +49,7 @@ def _cmd_new(args, chat_id, chat, bot):
     session = bot.spawn_session(chat_id, session_id, cwd)
     store.set_binding(chat_id, session_id, cwd, bot.config["default_model"],
                       bot.config["default_permission_mode"])
+    bot.update_chat_description(chat, session_id, cwd)
     msg = f"new session in {cwd}"
     if old_id:
         msg += f"\nprevious: {old_id}"
@@ -67,6 +68,7 @@ def _cmd_clear(args, chat_id, chat, bot):
     store.set_binding(chat_id, session_id, cwd, binding.get("model", bot.config["default_model"]),
                       binding.get("permission_mode", bot.config["default_permission_mode"]),
                       effort=binding.get("effort"), name=binding.get("name"))
+    bot.update_chat_description(chat, session_id, cwd)
     return f"cleared — fresh session in {cwd}\nprevious: {old_id}"
 
 
@@ -100,6 +102,7 @@ def _cmd_resume(args, chat_id, chat, bot):
     store.set_binding(chat_id, session_id, cwd,
                       binding.get("model", bot.config["default_model"]) if binding else bot.config["default_model"],
                       binding.get("permission_mode", bot.config["default_permission_mode"]) if binding else bot.config["default_permission_mode"])
+    bot.update_chat_description(chat, session_id, cwd)
     return f"resumed session {session_id} in {cwd}"
 
 
@@ -377,6 +380,7 @@ def _cmd_commission(args, chat_id, chat, bot):
                           bot.config["default_model"],
                           bot.config["default_permission_mode"],
                           name=name)
+        bot.update_chat_description(group, session_id, cwd)
         group.send_text(f"📂 {name} — {cwd}\nsession {session_id}\nsend a message to start")
         return f"created group '{name}' for {cwd}"
     except Exception as e:

@@ -84,6 +84,13 @@ class AgentBot:
         self.session_manager.register(chat_id, session)
         return session
 
+    def update_chat_description(self, chat, session_id: str, cwd: str):
+        desc = f"session: {session_id}\ncwd: {cwd}\nresume: claude --resume {session_id}"
+        try:
+            chat._rpc.set_chat_description(chat.account.id, chat.id, desc)
+        except Exception:
+            log.debug("could not set chat description (1:1 chat?)", exc_info=True)
+
     def _record_result(self, chat_id: int, session_id: str, event: dict):
         store.record_usage(
             chat_id=chat_id,
@@ -118,6 +125,7 @@ class AgentBot:
         store.set_binding(chat_id, session_id, cwd,
                           self.config["default_model"],
                           self.config["default_permission_mode"])
+        self.update_chat_description(chat, session_id, cwd)
         return self.spawn_session(chat_id, session_id, cwd)
 
     def _ensure_renderer(self, chat_id: int, chat) -> ChatRenderer:

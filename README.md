@@ -116,25 +116,37 @@ machine just runs the tool calls (bash, file I/O, git).
 
 ## How to setup
 
+### Install
+
+```bash
+pip install deltachat-claude-code
+
+# Optional: voice memo transcription
+pip install deltachat-claude-code[voice]
+```
+
+Or install from source:
+
 ```bash
 git clone https://github.com/maphouse/deltachat-claude-code
-cd agentbot
+cd deltachat-claude-code
+pip install .            # or: pip install .[voice]
+```
 
-# Create a virtualenv and install dependencies
-python3 -m venv venv
-source venv/bin/activate
-pip install -r requirements.txt
+### Configure and provision
 
-# Optional: voice memo transcription (sends a helpful message if
-# you skip this and later send a voice memo)
-pip install -r requirements-voice.txt
+```bash
+# Create a directory for your bot instance
+mkdir my-agentbot && cd my-agentbot
 
-# Configure
-cp config.example.toml config.toml
+# Copy the example config and edit it
+cp /path/to/config.example.toml config.toml
+# Or download it:
+# curl -O https://raw.githubusercontent.com/maphouse/deltachat-claude-code/main/config.example.toml
 # Edit config.toml: set admin_addresses, allowed_roots, default_cwd
 
 # Provision (creates chatmail account, avatar, systemd unit)
-python3 provision.py
+deltachat-claude-code-provision
 ```
 
 Provisioning prints the bot's chatmail address. Open Delta Chat on your phone,
@@ -144,7 +156,8 @@ tap "New Chat," and enter that address. Send any message to start a session.
 
 ```bash
 # Foreground (for testing)
-python3 -m agentbot
+deltachat-claude-code
+# or: python3 -m agentbot
 
 # As a systemd service (provisioning installs this)
 sudo systemctl enable --now agentbot.service

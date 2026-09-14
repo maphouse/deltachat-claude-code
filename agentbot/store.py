@@ -2,7 +2,7 @@ import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
 
-DB_PATH = Path(__file__).resolve().parent / "agentbot.db"
+DB_PATH = Path.cwd() / "agentbot.db"
 
 
 def _connect():

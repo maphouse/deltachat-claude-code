@@ -1,0 +1,54 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "deltachat-claude-code"
+version = "0.1.0"
+description = "Access Claude Code from your phone — full CLI sessions over Delta Chat"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11"
+authors = [{ name = "Emory Shaw" }]
+keywords = [
+    "claude-code",
+    "delta-chat",
+    "deltachat",
+    "chatbot",
+    "cli",
+    "anthropic",
+    "claude",
+    "remote-access",
+    "encrypted-chat",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: No Input/Output (Daemon)",
+    "Intended Audience :: Developers",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Communications :: Chat",
+    "Topic :: Software Development",
+]
+dependencies = [
+    "deltachat-rpc-client>=1.0",
+    "deltachat-rpc-server>=1.0",
+    "pillow>=10.0",
+]
+
+[project.optional-dependencies]
+voice = ["faster-whisper>=1.0"]
+
+[project.urls]
+Homepage = "https://github.com/maphouse/deltachat-claude-code"
+Repository = "https://github.com/maphouse/deltachat-claude-code"
+
+[project.scripts]
+deltachat-claude-code = "agentbot.bot:main"
+deltachat-claude-code-provision = "agentbot.provision:main"
+
+[tool.setuptools.packages.find]
+include = ["agentbot*"]

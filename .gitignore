@@ -6,3 +6,7 @@ avatars/
 config.toml
 *.pyc
 avatar.png
+*.egg-info/
+dist/
+build/
+venv/

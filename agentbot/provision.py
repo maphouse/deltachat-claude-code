@@ -11,7 +11,7 @@ from deltachat_rpc_client import DeltaChat, Rpc
 
 from agentbot.avatar import make_avatar
 
-BOT_DIR = Path(__file__).resolve().parent
+BOT_DIR = Path.cwd()
 RPC_SERVER_PATH = shutil.which("deltachat-rpc-server") or "deltachat-rpc-server"
 PYTHON = sys.executable
 CHATMAIL_QR = "DCACCOUNT:https://chtml.ca/new"
@@ -56,7 +56,7 @@ def install_service():
     unit_path = Path("/etc/systemd/system/agentbot.service")
     unit_text = SERVICE_TEMPLATE.format(
         user=user, home=home,
-        work_dir=BOT_DIR.parent, python=PYTHON,
+        work_dir=BOT_DIR, python=PYTHON,
     )
     subprocess.run(
         ["sudo", "tee", str(unit_path)],

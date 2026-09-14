@@ -12,7 +12,7 @@ from .render import ChatRenderer
 from .session import Session, SessionManager
 from .transcribe import transcribe, NOT_INSTALLED
 
-BOT_DIR = Path(__file__).resolve().parent
+BOT_DIR = Path.cwd()
 ACCOUNTS_DIR = str(BOT_DIR / "accounts")
 
 

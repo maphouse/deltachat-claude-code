@@ -150,9 +150,8 @@ class AgentBot:
         renderer.set_inbound(snapshot.id)
         renderer.react_receipt()
 
-        quoted = getattr(snapshot, "quotedText", None) or getattr(snapshot, "quoted_text", None)
-        if quoted:
-            quoted = quoted.strip()
+        quote_obj = getattr(snapshot, "quote", None)
+        quoted = quote_obj.text.strip() if quote_obj and getattr(quote_obj, "text", None) else None
 
         if snapshot.file:
             text = self._handle_attachment(chat_id, snapshot, text)

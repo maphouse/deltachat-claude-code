@@ -102,7 +102,7 @@ subprocesses it manages — each one is a full Node.js process.
 
 | Component | RAM | Notes |
 |---|---|---|
-| agentbot (Python) | ~20 MB | Always resident while the service is running |
+| Bot process | ~20 MB | Always resident while the service is running |
 | Each Claude Code session | ~300 MB | One per active chat; idle sessions are reaped |
 | faster-whisper (optional) | ~200 MB | Loaded per transcription, then released |
 
@@ -141,7 +141,7 @@ pip install .            # or: pip install .[voice]
 
 ```bash
 # Create a directory for your bot instance
-mkdir my-agentbot && cd my-agentbot
+mkdir my-bot && cd my-bot
 
 # Copy the example config and edit it
 cp /path/to/config.example.toml config.toml
@@ -161,9 +161,8 @@ tap "New Chat," and enter that address. Send any message to start a session.
 ```bash
 # Foreground (for testing)
 deltachat-claude-code
-# or: python3 -m agentbot
 
-# As a systemd service (provisioning installs this)
+# As a systemd service (provisioning installs this), internally called agentbot
 sudo systemctl enable --now agentbot.service
 journalctl -u agentbot -f   # watch logs
 ```

@@ -1,6 +1,6 @@
 # deltachat-claude-code <img width="45" alt="social-preview" src="https://github.com/user-attachments/assets/91703ad9-b5ad-434b-aa85-237e5851266c" />
 
-**Access Claude Code from your phone — full CLI sessions over encrypted chat, no signup, no terminal needed.**
+**Access self-hosted Claude Code from your phone — full CLI sessions over encrypted chat, no signup, no terminal needed.**
 
 Host a bot that proxies full
 [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI sessions to any device via lightweight encrypted chat. This is not an API wrapper or a chatbot skin, it's the whole `claude` binary over a chat transport. Everything you get in a terminal session is bridged into an easy chat interface: file editing, bash, git,

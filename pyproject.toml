@@ -8,6 +8,7 @@ version = "0.1.1"
 description = "Access Claude Code from your phone — full CLI sessions over Delta Chat"
 readme = "README.md"
 license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.11"
 authors = [{ name = "Emory Shaw" }]
 keywords = [
@@ -25,7 +26,7 @@ classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: No Input/Output (Daemon)",
     "Intended Audience :: Developers",
-    "License :: OSI Approved :: MIT License",
+
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",

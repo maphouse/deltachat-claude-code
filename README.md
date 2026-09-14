@@ -4,7 +4,7 @@
 [![Python](https://img.shields.io/pypi/pyversions/deltachat-claude-code)](https://pypi.org/project/deltachat-claude-code/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**Access self-hosted Claude Code from your phone — full CLI sessions over encrypted chat, no signup, no terminal needed.**
+**Access self-hosted Claude Code from your phone — full CLI sessions over encrypted chat, no signup needed.**
 
 Host a bot that proxies full
 [Claude Code](https://docs.anthropic.com/en/docs/claude-code) CLI sessions to any device via lightweight encrypted chat. This is not an API wrapper or a chatbot skin, it's the whole `claude` binary over a chat transport. Everything you get in a terminal session is bridged into an easy chat interface: file editing, bash, git,

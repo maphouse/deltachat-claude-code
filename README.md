@@ -1,5 +1,9 @@
 # deltachat-claude-code <img width="45" alt="social-preview" src="https://github.com/user-attachments/assets/91703ad9-b5ad-434b-aa85-237e5851266c" />
 
+[![PyPI](https://img.shields.io/pypi/v/deltachat-claude-code)](https://pypi.org/project/deltachat-claude-code/)
+[![Python](https://img.shields.io/pypi/pyversions/deltachat-claude-code)](https://pypi.org/project/deltachat-claude-code/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 **Access self-hosted Claude Code from your phone — full CLI sessions over encrypted chat, no signup, no terminal needed.**
 
 Host a bot that proxies full

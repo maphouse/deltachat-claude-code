@@ -122,10 +122,12 @@ class AgentBot:
 
         cwd = binding["cwd"] if binding else self.config["default_cwd"]
         session_id = str(uuid.uuid4())
+        had_binding = binding is not None
         store.set_binding(chat_id, session_id, cwd,
                           self.config["default_model"],
                           self.config["default_permission_mode"])
-        self.update_chat_description(chat, session_id, cwd)
+        if not had_binding:
+            self.update_chat_description(chat, session_id, cwd)
         return self.spawn_session(chat_id, session_id, cwd)
 
     def _ensure_renderer(self, chat_id: int, chat) -> ChatRenderer:

@@ -172,7 +172,7 @@ class AgentBot:
         parsed = commands.classify(text) if text else None
         if parsed:
             cmd, args = parsed
-            result = commands.handle(cmd, args, chat_id, chat, self)
+            result = commands.handle(cmd, args, chat_id, chat, self, quoted=quoted)
             if result is not None:
                 if result:
                     chat.send_text(result)

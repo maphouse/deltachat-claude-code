@@ -26,9 +26,14 @@ def classify(text: str) -> tuple[str, str] | None:
     return m.group(1).lower(), (m.group(2) or "").strip()
 
 
-def handle(cmd: str, args: str, chat_id: int, chat, bot) -> str | None:
+_CTX_COMMANDS = {"listen"}
+
+
+def handle(cmd: str, args: str, chat_id: int, chat, bot, **ctx) -> str | None:
     handler = HANDLERS.get(cmd)
     if handler:
+        if cmd in _CTX_COMMANDS:
+            return handler(args, chat_id, chat, bot, **ctx)
         return handler(args, chat_id, chat, bot)
     if cmd in BLOCKED:
         return f"/{cmd} requires a TTY — use `ssh thinkpad -t 'claude'` instead."
@@ -333,6 +338,7 @@ def _cmd_help(args, chat_id, chat, bot):
         "info:",
         "  /usage             — cost and context stats",
         "  /send <path>       — send a file to this chat",
+        "  /listen            — reply to a message to hear it (TTS)",
         "  /commission <name> [dir] — new chat for a project",
         "  /help              — this message",
         "",
@@ -386,6 +392,26 @@ def _cmd_commission(args, chat_id, chat, bot):
     except Exception as e:
         log.exception("commission failed")
         return f"commission failed: {e}"
+
+
+def _cmd_listen(args, chat_id, chat, bot, quoted=None, **_kw):
+    if not quoted:
+        return "reply to a message with /listen to hear it"
+    from . import tts
+    if not tts.is_available():
+        return ("piper-tts not installed. Install it in the bot's venv:\n"
+                "  pip install piper-tts\n"
+                "Then restart the bot.")
+    audio = tts.synthesize(quoted)
+    if not audio:
+        return "TTS synthesis failed — check logs"
+    try:
+        chat.send_file(str(audio))
+    except Exception as e:
+        return f"failed to send audio: {e}"
+    finally:
+        audio.unlink(missing_ok=True)
+    return ""
 
 
 def _cmd_send(args, chat_id, chat, bot):
@@ -453,4 +479,5 @@ HANDLERS = {
     "commission": _cmd_commission,
     "maxsessions": _cmd_maxsessions,
     "send": _cmd_send,
+    "listen": _cmd_listen,
 }

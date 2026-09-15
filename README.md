@@ -64,6 +64,10 @@ prompting. See [why](#why) this is the best way to interact with Claude Code.
   back to your chat. Attachments are saved to `.agentbot-inbox/` in the
   session's working directory.
 
+- **Listen to responses.** Reply to any bot message with `/listen` to hear it
+  as audio. Uses [Piper](https://github.com/rhasspy/piper) for local neural
+  text-to-speech — no API calls, runs entirely on your machine.
+
 
 ## Screenshots
 
@@ -83,6 +87,7 @@ commands.py     slash router: /new, /clear, /exit, /resume, /model, /mode, /comm
 store.py        SQLite: chat↔session bindings, per-turn usage tracking
 avatar.py       random identicon avatars for commissioned project chats
 transcribe.py   optional faster-whisper voice memo transcription
+tts.py          optional piper text-to-speech for /listen
 provision.py    one-time setup: creates chatmail account, avatar, systemd unit
 ```
 
@@ -105,6 +110,7 @@ subprocesses it manages — each one is a full Node.js process.
 | Bot process | ~20 MB | Always resident while the service is running |
 | Each Claude Code session | ~300 MB | One per active chat; idle sessions are reaped |
 | faster-whisper (optional) | ~200 MB | Loaded per transcription, then released |
+| piper-tts (optional) | ~150 MB | Loaded per `/listen`, then released |
 
 With the default `max_live_sessions = 3`, peak usage is roughly **1 GB** (bot +
 3 sessions). Idle-reaped sessions release their memory; sending a new message
@@ -210,6 +216,7 @@ These commands control the Claude Code session from inside a persistent chat.
 |---|---|
 | `/usage` | Session, today, and weekly stats (turns, tokens, context fill) |
 | `/send <path>` | Send a file (image, PDF, etc.) from the server to this chat |
+| `/listen` | Reply to a message to hear it as audio (TTS) |
 | `/help` | All bot commands plus Claude Code's own command list |
 
 

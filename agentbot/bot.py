@@ -1,8 +1,11 @@
 import logging
 import os
+import re
 import shutil
+import threading
 import tomllib
 import uuid
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from deltachat_rpc_client import Client, DeltaChat, Rpc, events
@@ -36,6 +39,12 @@ logging.basicConfig(
 log = logging.getLogger("agentbot")
 
 
+RESET_TIME_RE = re.compile(
+    r"resets?\s+(\d{1,2}:\d{2}\s*(?:am|pm))\s*\(UTC\)",
+    re.IGNORECASE,
+)
+
+
 class AgentBot:
     def __init__(self):
         self.bot_dir = BOT_DIR
@@ -46,6 +55,9 @@ class AgentBot:
             idle_timeout_min=self.config["idle_timeout_min"],
         )
         self._renderers: dict[int, ChatRenderer] = {}
+        self.continue_after_reset = self.config.get("continue_after_reset", False)
+        self._continue_timers: dict[int, threading.Timer] = {}
+        self._rate_limited_chats: set[int] = set()
 
     def _load_config(self) -> dict:
         with open(BOT_DIR / "config.toml", "rb") as f:
@@ -75,6 +87,9 @@ class AgentBot:
                 renderer.handle_event(event)
             if etype == "result":
                 self._record_result(chat_id, session_id, event)
+                self._log_rate_limit_result(chat_id, event)
+            if etype == "assistant":
+                self._check_rate_limit(chat_id, event)
 
         session = Session(
             session_id=session_id, cwd=cwd, model=model,
@@ -103,6 +118,78 @@ class AgentBot:
             num_turns=event.get("num_turns"),
             duration_ms=event.get("duration_ms"),
         )
+
+    def _check_rate_limit(self, chat_id: int, event: dict):
+        for block in event.get("message", {}).get("content", []):
+            if block.get("type") != "text":
+                continue
+            m = RESET_TIME_RE.search(block.get("text", ""))
+            if m:
+                self._rate_limited_chats.add(chat_id)
+                if self.continue_after_reset:
+                    self._schedule_continue(chat_id, m.group(1))
+                return
+
+    def _log_rate_limit_result(self, chat_id: int, event: dict):
+        if chat_id not in self._rate_limited_chats:
+            return
+        self._rate_limited_chats.discard(chat_id)
+        log.info("rate-limited result event for chat %d: %s", chat_id,
+                 {k: v for k, v in event.items() if k != "message"})
+
+    def _schedule_continue(self, chat_id: int, reset_time_str: str):
+        self._cancel_continue(chat_id)
+        now = datetime.now(timezone.utc)
+        time_str = reset_time_str.strip().lower().replace(" ", "")
+        for fmt in ("%I:%M%p", "%H:%M"):
+            try:
+                parsed = datetime.strptime(time_str, fmt)
+                break
+            except ValueError:
+                continue
+        else:
+            log.warning("could not parse reset time: %s", reset_time_str)
+            return
+        reset = now.replace(hour=parsed.hour, minute=parsed.minute, second=0, microsecond=0)
+        if reset <= now:
+            reset += timedelta(days=1)
+        delay = (reset - now).total_seconds() + 60
+        log.info("auto-continue for chat %d in %.0fs (reset %s UTC)",
+                 chat_id, delay, reset.strftime("%H:%M"))
+        timer = threading.Timer(delay, self._do_continue, args=(chat_id,))
+        timer.daemon = True
+        timer.start()
+        self._continue_timers[chat_id] = timer
+        renderer = self._renderers.get(chat_id)
+        if renderer:
+            renderer._send_text(
+                f"⏰ will auto-continue at {reset.strftime('%H:%M')} UTC + 1 min"
+            )
+
+    def _do_continue(self, chat_id: int):
+        self._continue_timers.pop(chat_id, None)
+        log.info("auto-continuing chat %d after rate limit reset", chat_id)
+        renderer = self._renderers.get(chat_id)
+        if not renderer:
+            log.warning("auto-continue: no renderer for chat %d", chat_id)
+            return
+        session = self.session_manager.get(chat_id)
+        if not session:
+            binding = store.get_binding(chat_id)
+            if binding:
+                session = self.spawn_session(
+                    chat_id, binding["session_id"], binding["cwd"], resume=True,
+                )
+        if session and session.alive:
+            renderer._send_text("⏰ auto-continuing after rate limit reset")
+            session.send_user("continue where you left off")
+        else:
+            renderer._send_text("⏰ auto-continue failed — session not available")
+
+    def _cancel_continue(self, chat_id: int):
+        timer = self._continue_timers.pop(chat_id, None)
+        if timer:
+            timer.cancel()
 
     def _ensure_session(self, chat_id: int, chat) -> Session | None:
         session = self.session_manager.get(chat_id)
@@ -148,11 +235,13 @@ class AgentBot:
 
         if sender not in self.config["admin_addresses"]:
             log.warning("unauthorized message from %s", sender)
-            chat.send_text("not authorized")
+            chat.send_text(f"not authorized: {sender} needs to be added to admin_addresses")
             return
 
         if not text and not snapshot.file:
             return
+
+        self._cancel_continue(chat_id)
 
         log.info("message from %s in chat %d: %r", sender, chat_id, text[:100])
 

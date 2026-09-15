@@ -334,6 +334,7 @@ def _cmd_help(args, chat_id, chat, bot):
         "  /effort [level]    — show/set effort level",
         "  /verbose [on|off]  — toggle tool/thinking visibility",
         "  /maxsessions [n]   — show/set max concurrent sessions",
+        "  /continue-after-reset — auto-continue after rate limit resets",
         "",
         "info:",
         "  /usage             — cost and context stats",
@@ -414,6 +415,15 @@ def _cmd_listen(args, chat_id, chat, bot, quoted=None, **_kw):
     return ""
 
 
+def _cmd_continue_after_reset(args, chat_id, chat, bot):
+    if args:
+        bot.continue_after_reset = args.lower() in ("on", "true", "1", "yes")
+    else:
+        bot.continue_after_reset = not bot.continue_after_reset
+    state = "on" if bot.continue_after_reset else "off"
+    return f"continue-after-reset → {state}"
+
+
 def _cmd_send(args, chat_id, chat, bot):
     if not args:
         return "usage: /send <path>"
@@ -480,4 +490,5 @@ HANDLERS = {
     "maxsessions": _cmd_maxsessions,
     "send": _cmd_send,
     "listen": _cmd_listen,
+    "continue-after-reset": _cmd_continue_after_reset,
 }

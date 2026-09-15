@@ -68,6 +68,11 @@ prompting. See [why](#why) this is the best way to interact with Claude Code.
   as audio. Uses [Piper](https://github.com/rhasspy/piper) for local neural
   text-to-speech — no API calls, runs entirely on your machine.
 
+- **Auto-continue after rate limits.** Toggle `/continue-after-reset` and the
+  bot will detect when Claude hits a session limit, parse the reset time from
+  the message, and automatically resume the conversation one minute after the
+  limit lifts — no need to watch the clock or come back to re-prompt.
+
 
 ## Screenshots
 
@@ -209,6 +214,7 @@ These commands control the Claude Code session from inside a persistent chat.
 | `/effort [level]` | Show or set effort (low, medium, high, xhigh, max) |
 | `/verbose [on\|off]` | Toggle tool and thinking visibility in chat |
 | `/maxsessions [n]` | Show or set max concurrent Claude subprocesses |
+| `/continue-after-reset` | Toggle auto-continue after rate limit resets |
 
 ### Info
 

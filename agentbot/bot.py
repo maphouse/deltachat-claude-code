@@ -9,8 +9,34 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from deltachat_rpc_client import Client, DeltaChat, Rpc, events
+from deltachat_rpc_client.events import EventType
 
 from . import commands, store
+
+# The RPC server may emit event types newer than the Python client knows about
+# (e.g. IncomingWebxdcNotify). Patch the event loop to skip unknown types
+# instead of crashing.
+_original_process_events = Client._process_events
+
+def _safe_process_events(self, until_func=None, until_event=False):
+    if until_func is None:
+        until_func = lambda e: False
+    while True:
+        event = self.account.wait_for_event()
+        try:
+            event["kind"] = EventType(event.kind)
+        except ValueError:
+            continue
+        event["account"] = self.account
+        self._on_event(event)
+        if event.kind == EventType.INCOMING_MSG:
+            self._process_messages()
+        if until_func(event):
+            return event
+        if event.kind == until_event:
+            return event
+
+Client._process_events = _safe_process_events
 from .render import ChatRenderer
 from .session import Session, SessionManager
 from .transcribe import transcribe, NOT_INSTALLED
@@ -55,7 +81,8 @@ class AgentBot:
             idle_timeout_min=self.config["idle_timeout_min"],
         )
         self._renderers: dict[int, ChatRenderer] = {}
-        self.continue_after_reset = self.config.get("continue_after_reset", False)
+        saved = store.get_setting("continue_after_reset")
+        self.continue_after_reset = (saved == "1") if saved is not None else self.config.get("continue_after_reset", False)
         self._continue_timers: dict[int, threading.Timer] = {}
         self._rate_limited_chats: set[int] = set()
 

@@ -27,6 +27,10 @@ def init_db():
             created_at      TEXT NOT NULL,
             last_used       TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS settings (
+            key   TEXT PRIMARY KEY,
+            value TEXT NOT NULL
+        );
         CREATE TABLE IF NOT EXISTS usage (
             id              INTEGER PRIMARY KEY AUTOINCREMENT,
             chat_id         INTEGER NOT NULL,
@@ -41,6 +45,24 @@ def init_db():
             duration_ms     INTEGER
         );
     """)
+    conn.commit()
+    conn.close()
+
+
+def get_setting(key: str, default: str = None) -> str | None:
+    conn = _connect()
+    row = conn.execute("SELECT value FROM settings WHERE key = ?", (key,)).fetchone()
+    conn.close()
+    return row["value"] if row else default
+
+
+def set_setting(key: str, value: str):
+    conn = _connect()
+    conn.execute(
+        "INSERT INTO settings (key, value) VALUES (?, ?) "
+        "ON CONFLICT(key) DO UPDATE SET value = excluded.value",
+        (key, value),
+    )
     conn.commit()
     conn.close()
 

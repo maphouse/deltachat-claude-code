@@ -420,6 +420,7 @@ def _cmd_continue_after_reset(args, chat_id, chat, bot):
         bot.continue_after_reset = args.lower() in ("on", "true", "1", "yes")
     else:
         bot.continue_after_reset = not bot.continue_after_reset
+    store.set_setting("continue_after_reset", "1" if bot.continue_after_reset else "0")
     state = "on" if bot.continue_after_reset else "off"
     return f"continue-after-reset → {state}"
 

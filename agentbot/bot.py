@@ -372,7 +372,7 @@ class AgentBot:
             log.info("running as %s", account.get_config("addr"))
             client = Client(
                 account,
-                hooks=[(self.handle_message, events.NewMessage())],
+                hooks=[(self.handle_message, events.NewMessage(is_info=False))],
             )
             client.run_forever()
 

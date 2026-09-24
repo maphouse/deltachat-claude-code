@@ -44,6 +44,11 @@ def init_db():
             num_turns       INTEGER,
             duration_ms     INTEGER
         );
+        CREATE TABLE IF NOT EXISTS shared_chats (
+            chat_id    INTEGER PRIMARY KEY,
+            shared_by  TEXT NOT NULL,
+            shared_at  TEXT NOT NULL
+        );
     """)
     conn.commit()
     conn.close()
@@ -121,6 +126,31 @@ def update_binding(chat_id: int, **fields):
 def delete_binding(chat_id: int):
     conn = _connect()
     conn.execute("DELETE FROM bindings WHERE chat_id = ?", (chat_id,))
+    conn.commit()
+    conn.close()
+
+
+def is_shared(chat_id: int) -> bool:
+    conn = _connect()
+    row = conn.execute("SELECT 1 FROM shared_chats WHERE chat_id = ?", (chat_id,)).fetchone()
+    conn.close()
+    return row is not None
+
+
+def set_shared(chat_id: int, shared_by: str):
+    conn = _connect()
+    conn.execute(
+        "INSERT INTO shared_chats (chat_id, shared_by, shared_at) VALUES (?, ?, ?) "
+        "ON CONFLICT(chat_id) DO NOTHING",
+        (chat_id, shared_by, now_iso()),
+    )
+    conn.commit()
+    conn.close()
+
+
+def unset_shared(chat_id: int):
+    conn = _connect()
+    conn.execute("DELETE FROM shared_chats WHERE chat_id = ?", (chat_id,))
     conn.commit()
     conn.close()
 

@@ -47,7 +47,7 @@ prompting. See [why](#why) this is the best way to interact with Claude Code.
 - **Project-based chats.** Use `/commission <name> <directory>` to create a dedicated group
   chat for a project in a given folder. Each commissioned chat gets its own session and randomly generated identicon avatar.
 
-- **Vibe code with friends.** The bot is a Delta Chat contact like any other, and a commissioned group chat is just a group chat. Add your other contacts to a chat with the agent and work on a project together!
+- **Vibe code with friends.** The bot is a Delta Chat contact like any other, and a commissioned group chat is just a group chat. Add your other contacts to a chat with the agent and work on a project together — they can use the bot in that chat without being added to `admin_addresses` (see [Sharing chats with guests](#sharing-chats-with-guests)).
 
 - **Session portability.** A session started from your phone can be resumed from
   a terminal (`claude --resume <id>`), and vice versa. The underlying `.jsonl`
@@ -189,7 +189,30 @@ slash commands work.
 Use `/commission <name> [dir]` to create a dedicated group chat for a project.
 Each commissioned chat gets its own session, working directory, and randomly
 generated identicon avatar. This is how you keep multiple long-running projects
-separate.
+separate. Commissioned chats start out shared (see below), and everyone in the chat
+you ran `/commission` from is added to the new group.
+
+### Sharing chats with guests
+
+Owners are the addresses in `admin_addresses`. They can use the bot in any chat. Anyone
+else is a guest, and the bot only answers a guest in a chat an owner has shared:
+
+| Command | What it does |
+|---|---|
+| `/share` | Let everyone in this chat use the bot (owner-only) |
+| `/unshare` | Back to owners only (owner-only) |
+
+- Commissioned chats are shared automatically.
+- A shared chat only works for guests while at least one owner is still a member. If
+  every owner leaves, the bot stops answering guests there.
+- Guests can't share chats themselves, so adding the bot to a group without an owner
+  gets them nothing. Adding an owner to their own group doesn't work either — an owner
+  has to run `/share` there.
+- Guests can use `/stop`, `/clear`, `/model`, `/effort`, `/verbose`, `/usage`, `/help` and
+  `/listen`. Every other bot command is owner-only. Claude Code's own slash commands
+  (e.g. `/compact`) pass through as usual.
+- The bot ignores anyone it won't serve without replying, so it doesn't spam group
+  chats that haven't been shared.
 
 ### Session control inside a chat
 
@@ -228,11 +251,20 @@ These commands control the Claude Code session from inside a persistent chat.
 
 ## Security
 
-The `admin_addresses` list in `config.toml` is the **only access control**. The
-bot runs with `bypassPermissions`, meaning Claude Code will execute any tool
-without confirmation. This is deliberate — confirmation prompts can't work over
-chat — but it means the allowlist is load-bearing. Only add addresses you trust
-with full shell access to the machine.
+Access control has two layers: the `admin_addresses` list in `config.toml` (owners),
+and the chats owners have shared with `/share` or `/commission`. The bot runs with
+`bypassPermissions`, meaning Claude Code will execute any tool without confirmation.
+This is deliberate — confirmation prompts can't work over chat — but it means both
+layers are load-bearing. Only add addresses you trust with full shell access to the
+machine.
+
+**Guests in a shared chat have that same shell access.** Limiting guests to certain
+commands only limits the bot's own commands. Claude itself still runs as your Unix user,
+with your permissions. A guest can ask it to read your SSH keys and API tokens, run
+anything under your account, push to your git remotes, or leave the project directory.
+Telling Claude not to do these things doesn't enforce anything. Only share a chat with
+people you'd trust at your own terminal. Guest turns also count against your Claude
+subscription. `/unshare` (or removing someone from the group) cuts off access right away.
 
 ## To note
 

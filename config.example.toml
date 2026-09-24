@@ -13,7 +13,7 @@ default_cwd = "/home/you"
 default_model = ""
 
 # Permission mode for Claude Code sessions. "bypassPermissions" skips all
-# confirmation prompts — only safe because admin_addresses gates access.
+# confirmation prompts — only safe because admin_addresses (and /share) gate access.
 default_permission_mode = "bypassPermissions"
 
 # Max concurrent Claude Code subprocesses. Oldest idle session is evicted

@@ -26,12 +26,20 @@ def classify(text: str) -> tuple[str, str] | None:
     return m.group(1).lower(), (m.group(2) or "").strip()
 
 
-_CTX_COMMANDS = {"listen"}
+_CTX_COMMANDS = {"listen", "commission", "share"}
+
+# Commands a guest (non-owner in a shared chat) may run. Everything else in
+# HANDLERS is owner-only; unknown /commands still pass through to Claude Code.
+GUEST_COMMANDS = {"stop", "clear", "model", "effort", "verbose", "usage", "cost",
+                  "help", "listen"}
 
 
-def handle(cmd: str, args: str, chat_id: int, chat, bot, **ctx) -> str | None:
+def handle(cmd: str, args: str, chat_id: int, chat, bot, owner: bool = True,
+           **ctx) -> str | None:
     handler = HANDLERS.get(cmd)
     if handler:
+        if not owner and cmd not in GUEST_COMMANDS:
+            return f"/{cmd} is owner-only"
         if cmd in _CTX_COMMANDS:
             return handler(args, chat_id, chat, bot, **ctx)
         return handler(args, chat_id, chat, bot)
@@ -340,9 +348,15 @@ def _cmd_help(args, chat_id, chat, bot):
         "  /usage             — cost and context stats",
         "  /send <path>       — send a file to this chat",
         "  /listen            — reply to a message to hear it (TTS)",
-        "  /commission <name> [dir] — new chat for a project",
+        "  /commission <name> [dir] — new shared chat for a project",
         "  /help              — this message",
         "",
+        "sharing:",
+        "  /share             — let everyone in this chat use the bot",
+        "  /unshare           — back to owners only",
+        "",
+        "guests (non-owners in a shared chat) can use /stop /clear /model",
+        "/effort /verbose /usage /help /listen; the rest are owner-only.",
         "any other /command is passed through to Claude Code.",
     ]
     session = bot.session_manager.get(chat_id)
@@ -357,7 +371,7 @@ def _cmd_help(args, chat_id, chat, bot):
     return "\n".join(lines)
 
 
-def _cmd_commission(args, chat_id, chat, bot):
+def _cmd_commission(args, chat_id, chat, bot, sender=None, **_kw):
     if not args:
         return "usage: /commission <name> [dir]"
     parts = args.split(None, 1)
@@ -387,12 +401,29 @@ def _cmd_commission(args, chat_id, chat, bot):
                           bot.config["default_model"],
                           bot.config["default_permission_mode"],
                           name=name)
+        store.set_shared(group_chat_id, sender or "commission")
         bot.update_chat_description(group, session_id, cwd)
         group.send_text(f"📂 {name} — {cwd}\nsession {session_id}\nsend a message to start")
         return f"created group '{name}' for {cwd}"
     except Exception as e:
         log.exception("commission failed")
         return f"commission failed: {e}"
+
+
+def _cmd_share(args, chat_id, chat, bot, sender=None, **_kw):
+    if store.is_shared(chat_id):
+        return "already shared — everyone in this chat can use the bot"
+    store.set_shared(chat_id, sender or "?")
+    return ("shared — everyone in this chat can now use the bot, as long as an owner "
+            "stays in it. guests get full session access (same permissions as you).\n"
+            "/unshare to revoke")
+
+
+def _cmd_unshare(args, chat_id, chat, bot):
+    if not store.is_shared(chat_id):
+        return "not shared — only owners can use the bot here"
+    store.unset_shared(chat_id)
+    return "unshared — only owners can use the bot here"
 
 
 def _cmd_listen(args, chat_id, chat, bot, quoted=None, **_kw):
@@ -488,6 +519,8 @@ HANDLERS = {
     "cost": _cmd_usage,
     "help": _cmd_help,
     "commission": _cmd_commission,
+    "share": _cmd_share,
+    "unshare": _cmd_unshare,
     "maxsessions": _cmd_maxsessions,
     "send": _cmd_send,
     "listen": _cmd_listen,

@@ -253,6 +253,14 @@ class AgentBot:
             self._renderers[chat_id] = renderer
         return renderer
 
+    def _guest_allowed(self, chat) -> bool:
+        """A non-owner may use the bot only in a chat an owner has shared, and
+        only while at least one owner is still a member of it."""
+        if not store.is_shared(chat.id):
+            return False
+        owners = set(self.config["admin_addresses"])
+        return any(c.get_snapshot().address in owners for c in chat.get_contacts())
+
     def handle_message(self, event):
         snapshot = event.message_snapshot
         sender = snapshot.sender.get_snapshot().address
@@ -260,9 +268,10 @@ class AgentBot:
         chat = snapshot.chat
         chat_id = chat.id
 
-        if sender not in self.config["admin_addresses"]:
-            log.warning("unauthorized message from %s", sender)
-            chat.send_text(f"not authorized: {sender} needs to be added to admin_addresses")
+        owner = sender in self.config["admin_addresses"]
+        if not owner and not self._guest_allowed(chat):
+            # Stay silent: replying would spam groups the bot wasn't shared into.
+            log.warning("ignoring %s in chat %d (not an owner, chat not shared)", sender, chat_id)
             return
 
         if not text and not snapshot.file:
@@ -288,7 +297,8 @@ class AgentBot:
         parsed = commands.classify(text) if text else None
         if parsed:
             cmd, args = parsed
-            result = commands.handle(cmd, args, chat_id, chat, self, quoted=quoted)
+            result = commands.handle(cmd, args, chat_id, chat, self, owner=owner,
+                                     quoted=quoted, sender=sender)
             if result is not None:
                 if result:
                     chat.send_text(result)

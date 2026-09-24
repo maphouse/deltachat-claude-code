@@ -47,7 +47,7 @@ prompting. See [why](#why) this is the best way to interact with Claude Code.
 - **Project-based chats.** Use `/commission <name> <directory>` to create a dedicated group
   chat for a project in a given folder. Each commissioned chat gets its own session and randomly generated identicon avatar.
 
-- **Vibe code with friends.** The bot is a Delta Chat contact like any other, and a commissioned group chat is just a group chat. Add your other contacts to a chat with the agent and work on a project together — they can use the bot in that chat without being added to `admin_addresses` (see [Sharing chats with guests](#sharing-chats-with-guests)).
+- **Vibe code with friends.** The bot is a Delta Chat contact like any other, and a commissioned group chat is just a group chat. Add your other contacts to a chat with the agent and work on a project together (see [Sharing chats with guests](#sharing-chats-with-guests)).
 
 - **Session portability.** A session started from your phone can be resumed from
   a terminal (`claude --resume <id>`), and vice versa. The underlying `.jsonl`

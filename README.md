@@ -45,7 +45,7 @@ prompting. See [why](#why) this is the best way to interact with Claude Code.
   of output.
 
 - **Project-based chats.** Use `/commission <name> <directory>` to create a dedicated group
-  chat for a project in a given folder. Each commissioned chat gets its own session and randomly generated identicon avatar, and can carry its own purpose and model on top of the folder's `CLAUDE.md` and settings.
+  chat for a project in a given folder. Each commissioned chat gets its own session and randomly generated identicon avatar, and can carry its own system prompt and model on top of the folder's `CLAUDE.md` and settings.
 
 - **Vibe code with friends.** The bot is a Delta Chat contact like any other, and a commissioned group chat is just a group chat. Add your other contacts to a chat with the agent and work on a project together (see [Sharing chats with guests](#sharing-chats-with-guests)).
 
@@ -195,19 +195,20 @@ you ran `/commission` from is added to the new group.
 Several chats can point at the same directory, so a chat can also carry its own frame:
 
 ```
-/commission nut-bugs ~/nut-game --model claude-opus-5-5
-Triage playtester bug reports. Reproduce before fixing. Don't refactor.
+/commission nut-bugs ~/nut-game --model claude-opus-5-5 --system-prompt 'Triage playtester bug reports. Reproduce before fixing. Don't refactor.'
 ```
 
-- **Purpose** (lines after the first) is appended to Claude Code's system prompt, on
+- **Chat prompt** (`--system-prompt`) is appended to Claude Code's system prompt, on
   top of the directory's `CLAUDE.md`, and shown in the chat description. It survives
-  `/clear` and `/new`. Change it later with `/prompt`.
+  `/clear` and `/new`. Change it later with `/prompt`. Quote it with straight or curly
+  quotes; apostrophes inside are fine.
 - **Model** (`--model`) overrides the directory's `.claude/settings*.json` for this chat
   only; the bot never writes to the directory. Change it later with `/model`.
 
-Every session also gets a short preamble telling Claude it's talking over Delta Chat
-(concise replies, where attachments land, whether the chat is shared). `/prompt` with
-no arguments shows the full appended text.
+Every session also gets the **preamble**, an agentbot-wide system prompt telling Claude
+it's talking over Delta Chat (concise replies, where attachments land). It's the
+`preamble` key in `config.toml`; the chat's name and sharing status and then its chat
+prompt are added after it. `/prompt` with no arguments shows the full appended text.
 
 ### Sharing chats with guests
 
@@ -249,7 +250,7 @@ These commands control the Claude Code session from inside a persistent chat.
 | Command | What it does |
 |---|---|
 | `/model [name\|default]` | Show or set this chat's model (sonnet, opus, haiku, fable, or full ID); `default` defers to the directory's settings |
-| `/prompt [text\|clear]` | Show or set this chat's purpose, appended to the system prompt from the next `/clear` or `/new` (owner-only) |
+| `/prompt ['text'\|clear]` | Show or set this chat's system prompt, applied from the next `/clear` or `/new` (owner-only) |
 | `/mode [name]` | Show, set, or cycle permission mode |
 | `/cwd [path]` | Show or change working directory |
 | `/effort [level]` | Show or set effort (low, medium, high, xhigh, max) |

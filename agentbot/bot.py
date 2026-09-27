@@ -71,6 +71,20 @@ RESET_TIME_RE = re.compile(
 )
 
 
+# The agentbot-wide system prompt every session gets; config.toml's `preamble`
+# replaces it. Chat name/sharing facts and the chat prompt are added after it.
+DEFAULT_PREAMBLE = """\
+You are being used through agentbot: the user talks to you over Delta Chat (an \
+encrypted messenger), often from a phone. Each of your text replies is sent as a \
+chat message, so keep them concise; light markdown is fine but avoid wide tables \
+and long code dumps unless asked.
+Files the user sends are saved under .agentbot-inbox/ in the working directory and \
+appear as [attached: <path>]; voice memos arrive already transcribed. You can't \
+send files yourself — the user can fetch one with /send <path>.
+The user may reset this conversation with /clear; anything that should outlive it \
+belongs in files (e.g. the project's CLAUDE.md)."""
+
+
 class AgentBot:
     def __init__(self):
         self.bot_dir = BOT_DIR
@@ -92,6 +106,7 @@ class AgentBot:
         # an empty default_model means "don't pass --model at all", letting the
         # cwd's .claude/settings*.json decide; None is how that travels
         cfg["default_model"] = cfg.get("default_model") or None
+        cfg.setdefault("preamble", DEFAULT_PREAMBLE)
         return cfg
 
     def get_renderer(self, chat_id: int) -> ChatRenderer | None:
@@ -128,37 +143,30 @@ class AgentBot:
         return session
 
     def system_prompt(self, chat_id: int) -> str:
-        """Appended to Claude Code's own prompt: the DC channel preamble, then
-        this chat's purpose. Layers on top of the cwd's CLAUDE.md, never replaces it."""
+        """What goes in --append-system-prompt: the agentbot-wide preamble, a few
+        facts about this chat, then the chat prompt. Layers on top of the cwd's
+        CLAUDE.md, never replaces it."""
         binding = store.get_binding(chat_id)
         name = binding.get("name") if binding else None
-        lines = [
-            "You are being used through agentbot: the user talks to you over Delta Chat "
-            "(an encrypted messenger), often from a phone. Each of your text replies is "
-            "sent as a chat message, so keep them concise; light markdown is fine but "
-            "avoid wide tables and long code dumps unless asked.",
-            "Files the user sends are saved under .agentbot-inbox/ in the working "
-            "directory and appear as [attached: <path>]; voice memos arrive already "
-            "transcribed. You can't send files yourself — the user can fetch one with "
-            "/send <path>.",
-            "The user may reset this conversation with /clear; anything that should "
-            "outlive it belongs in files (e.g. the project's CLAUDE.md).",
-        ]
+        parts = [self.config["preamble"].strip()]
+        facts = []
         if name:
-            lines.append(f"This chat is named \"{name}\".")
+            facts.append(f"This chat is named \"{name}\".")
         if store.is_shared(chat_id):
-            lines.append("This chat is shared: messages may come from people other than "
+            facts.append("This chat is shared: messages may come from people other than "
                          "the owner, and you can't tell who sent which.")
-        purpose = store.get_purpose(chat_id)
-        if purpose:
-            lines.append("\nPurpose of this chat, set by its owner:\n" + purpose)
-        return "\n".join(lines)
+        if facts:
+            parts.append(" ".join(facts))
+        chat_prompt = store.get_chat_prompt(chat_id)
+        if chat_prompt:
+            parts.append("System prompt for this chat, set by its owner:\n" + chat_prompt)
+        return "\n\n".join(parts)
 
     def update_chat_description(self, chat, session_id: str, cwd: str):
         desc = f"session: {session_id}\ncwd: {cwd}\nresume: claude --resume {session_id}"
-        purpose = store.get_purpose(chat.id)
-        if purpose:
-            desc = f"{purpose}\n\n{desc}"
+        chat_prompt = store.get_chat_prompt(chat.id)
+        if chat_prompt:
+            desc = f"{chat_prompt}\n\n{desc}"
         try:
             chat._rpc.set_chat_description(chat.account.id, chat.id, desc)
         except Exception:

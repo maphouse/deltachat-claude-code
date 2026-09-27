@@ -346,7 +346,7 @@ def _cmd_help(args, chat_id, chat, bot):
         "",
         "settings:",
         "  /model [name|default] — show/set this chat's model (default = cwd's settings files)",
-        "  /prompt [text|clear] — show/set this chat's purpose (owner-only)",
+        "  /prompt ['text'|clear] — show/set this chat's system prompt (owner-only)",
         "  /mode [name]       — show/cycle/set permission mode",
         "  /cwd [path]        — show/change working directory",
         "  /effort [level]    — show/set effort level",
@@ -358,8 +358,8 @@ def _cmd_help(args, chat_id, chat, bot):
         "  /usage             — cost and context stats",
         "  /send <path>       — send a file to this chat",
         "  /listen            — reply to a message to hear it (TTS)",
-        "  /commission <name> [dir] [--model m] — new shared chat;",
-        "                     lines after the first become its /prompt",
+        "  /commission <name> [dir] [--model m] [--system-prompt 'text']",
+        "                     — new shared chat for a project",
         "  /help              — this message",
         "",
         "sharing:",
@@ -382,16 +382,46 @@ def _cmd_help(args, chat_id, chat, bot):
     return "\n".join(lines)
 
 
-COMMISSION_USAGE = ("usage: /commission <name> [dir] [--model <model>]\n"
-                    "<purpose, on the following lines — optional>")
+COMMISSION_USAGE = ("usage: /commission <name> [dir] [--model <model>] "
+                    "[--system-prompt '<text>']")
+
+# Opening quote → closing quote, including the curly ones phone keyboards type.
+QUOTES = {'"': '"', "'": "'", "“": "”", "‘": "’", "«": "»"}
+PROMPT_FLAG_RE = re.compile(r"(?:^|\s)--system-prompt(?:=|\s+|$)")
+# phone keyboards autocorrect "--model" to "—model"
+DASH_FLAG_RE = re.compile(r"(^|\s)[—–](?=[a-z])")
+
+
+def _unquote(text: str) -> str:
+    text = text.strip()
+    if len(text) >= 2 and QUOTES.get(text[0]) == text[-1]:
+        return text[1:-1].strip()
+    return text
+
+
+def _take_system_prompt(args: str) -> tuple[str, str | None]:
+    """Split `--system-prompt <text>` out of args. A quoted value ends at the
+    last matching closing quote, so apostrophes inside it (Don't) are fine and
+    flags may follow it; an unquoted value runs to the end."""
+    m = PROMPT_FLAG_RE.search(args)
+    if not m:
+        return args, None
+    before, rest = args[:m.start()], args[m.end():].lstrip()
+    if rest and rest[0] in QUOTES:
+        close = rest.rfind(QUOTES[rest[0]])
+        if close > 0:
+            return f"{before} {rest[close + 1:]}", rest[1:close].strip()
+    return before, rest.strip()
 
 
 def _cmd_commission(args, chat_id, chat, bot, sender=None, **_kw):
     if not args:
         return COMMISSION_USAGE
-    first, _, purpose = args.partition("\n")
-    purpose = purpose.strip()
-    tokens = first.split()
+    args = DASH_FLAG_RE.sub(r"\1--", args)
+    args, chat_prompt = _take_system_prompt(args)
+    if chat_prompt == "":
+        return COMMISSION_USAGE
+    tokens = args.split()
     model = None
     for flag in ("--model", "-m"):
         if flag in tokens:
@@ -400,7 +430,7 @@ def _cmd_commission(args, chat_id, chat, bot, sender=None, **_kw):
                 return COMMISSION_USAGE
             model = tokens[i + 1]
             del tokens[i:i + 2]
-    if not tokens:
+    if not tokens or tokens[0].startswith("-"):
         return COMMISSION_USAGE
     name = tokens[0]
     cwd = " ".join(tokens[1:]) or bot.config["default_cwd"]
@@ -429,14 +459,14 @@ def _cmd_commission(args, chat_id, chat, bot, sender=None, **_kw):
                           bot.config["default_permission_mode"],
                           name=name)
         store.set_shared(group_chat_id, sender or "commission")
-        if purpose:
-            store.set_purpose(group_chat_id, purpose, sender)
+        if chat_prompt:
+            store.set_chat_prompt(group_chat_id, chat_prompt, sender)
         bot.update_chat_description(group, session_id, cwd)
         intro = [f"📂 {name} — {cwd}", f"session {session_id}"]
         if model:
             intro.append(f"model: {model}")
-        if purpose:
-            intro.append(f"purpose: {purpose}")
+        if chat_prompt:
+            intro.append(f"system prompt: {chat_prompt}")
         intro.append("send a message to start")
         group.send_text("\n".join(intro))
         return f"created group '{name}' for {cwd}"
@@ -446,21 +476,27 @@ def _cmd_commission(args, chat_id, chat, bot, sender=None, **_kw):
 
 
 def _cmd_prompt(args, chat_id, chat, bot, sender=None, **_kw):
-    purpose = store.get_purpose(chat_id)
+    chat_prompt = store.get_chat_prompt(chat_id)
     if not args:
-        if not purpose:
-            return ("no purpose set for this chat\n"
-                    "/prompt <text> to set one — it's appended to the system prompt, "
-                    "on top of the cwd's CLAUDE.md")
-        return f"purpose:\n{purpose}\n\nfull text appended to the system prompt:\n\n{bot.system_prompt(chat_id)}"
+        if not chat_prompt:
+            return ("no system prompt set for this chat\n"
+                    "/prompt '<text>' to set one — it's appended after the agentbot "
+                    "preamble, on top of the cwd's CLAUDE.md\n\n"
+                    f"currently appended:\n\n{bot.system_prompt(chat_id)}")
+        return (f"chat prompt:\n{chat_prompt}\n\n"
+                f"appended to the system prompt (preamble + chat prompt):\n\n"
+                f"{bot.system_prompt(chat_id)}")
     if args.lower() in ("clear", "none", "-"):
-        if not purpose:
-            return "no purpose set for this chat"
-        store.clear_purpose(chat_id)
-        msg = "purpose cleared"
+        if not chat_prompt:
+            return "no system prompt set for this chat"
+        store.clear_chat_prompt(chat_id)
+        msg = "chat prompt cleared"
     else:
-        store.set_purpose(chat_id, args, sender)
-        msg = "purpose set"
+        text = _unquote(args)
+        if not text:
+            return "usage: /prompt ['<text>'|clear]"
+        store.set_chat_prompt(chat_id, text, sender)
+        msg = "chat prompt set"
     binding = store.get_binding(chat_id)
     if binding:
         bot.update_chat_description(chat, binding["session_id"], binding["cwd"])

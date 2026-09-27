@@ -26,3 +26,15 @@ idle_timeout_min = 30
 
 # Show tool calls and thinking in chat messages.
 verbose_tools = true
+
+# Preamble: the agentbot-wide system prompt, appended (via --append-system-prompt)
+# to every session on top of Claude Code's own prompt and the cwd's CLAUDE.md.
+# Each chat's own system prompt (/commission --system-prompt, /prompt) and its
+# name/sharing status are added after it. Omit the key to use the built-in text.
+# Claude Code keeps a conversation's system prompt from its first message, so
+# edits reach a chat from its next /clear or /new (after a bot restart).
+preamble = """
+You are being used through agentbot: the user talks to you over Delta Chat (an encrypted messenger), often from a phone. Each of your text replies is sent as a chat message, so keep them concise; light markdown is fine but avoid wide tables and long code dumps unless asked.
+Files the user sends are saved under .agentbot-inbox/ in the working directory and appear as [attached: <path>]; voice memos arrive already transcribed. You can't send files yourself — the user can fetch one with /send <path>.
+The user may reset this conversation with /clear; anything that should outlive it belongs in files (e.g. the project's CLAUDE.md).
+"""

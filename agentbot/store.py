@@ -51,7 +51,7 @@ def init_db():
         );
         CREATE TABLE IF NOT EXISTS chat_context (
             chat_id    INTEGER PRIMARY KEY,
-            purpose    TEXT NOT NULL,
+            prompt     TEXT NOT NULL,
             set_by     TEXT,
             updated_at TEXT NOT NULL
         );
@@ -161,26 +161,26 @@ def unset_shared(chat_id: int):
     conn.close()
 
 
-def get_purpose(chat_id: int) -> str | None:
+def get_chat_prompt(chat_id: int) -> str | None:
     conn = _connect()
-    row = conn.execute("SELECT purpose FROM chat_context WHERE chat_id = ?", (chat_id,)).fetchone()
+    row = conn.execute("SELECT prompt FROM chat_context WHERE chat_id = ?", (chat_id,)).fetchone()
     conn.close()
-    return row["purpose"] if row else None
+    return row["prompt"] if row else None
 
 
-def set_purpose(chat_id: int, purpose: str, set_by: str = None):
+def set_chat_prompt(chat_id: int, prompt: str, set_by: str = None):
     conn = _connect()
     conn.execute(
-        "INSERT INTO chat_context (chat_id, purpose, set_by, updated_at) VALUES (?, ?, ?, ?) "
-        "ON CONFLICT(chat_id) DO UPDATE SET purpose = excluded.purpose, "
+        "INSERT INTO chat_context (chat_id, prompt, set_by, updated_at) VALUES (?, ?, ?, ?) "
+        "ON CONFLICT(chat_id) DO UPDATE SET prompt = excluded.prompt, "
         "set_by = excluded.set_by, updated_at = excluded.updated_at",
-        (chat_id, purpose, set_by, now_iso()),
+        (chat_id, prompt, set_by, now_iso()),
     )
     conn.commit()
     conn.close()
 
 
-def clear_purpose(chat_id: int):
+def clear_chat_prompt(chat_id: int):
     conn = _connect()
     conn.execute("DELETE FROM chat_context WHERE chat_id = ?", (chat_id,))
     conn.commit()

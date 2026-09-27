@@ -26,7 +26,7 @@ def classify(text: str) -> tuple[str, str] | None:
     return m.group(1).lower(), (m.group(2) or "").strip()
 
 
-_CTX_COMMANDS = {"listen", "commission", "share"}
+_CTX_COMMANDS = {"listen", "commission", "share", "prompt"}
 
 # Commands a guest (non-owner in a shared chat) may run. Everything else in
 # HANDLERS is owner-only; unknown /commands still pass through to Claude Code.
@@ -59,9 +59,13 @@ def _cmd_new(args, chat_id, chat, bot):
     old_id = old["session_id"] if old else None
     bot.session_manager.remove(chat_id)
     session_id = str(uuid.uuid4())
-    session = bot.spawn_session(chat_id, session_id, cwd)
-    store.set_binding(chat_id, session_id, cwd, bot.config["default_model"],
-                      bot.config["default_permission_mode"])
+    # the chat's model/effort/name outlive its sessions; set them before spawning
+    store.set_binding(chat_id, session_id, cwd,
+                      old.get("model") if old else bot.config["default_model"],
+                      bot.config["default_permission_mode"],
+                      effort=old.get("effort") if old else None,
+                      name=old.get("name") if old else None)
+    bot.spawn_session(chat_id, session_id, cwd)
     bot.update_chat_description(chat, session_id, cwd)
     msg = f"new session in {cwd}"
     if old_id:
@@ -77,10 +81,10 @@ def _cmd_clear(args, chat_id, chat, bot):
     bot.session_manager.remove(chat_id)
     session_id = str(uuid.uuid4())
     cwd = binding["cwd"]
-    bot.spawn_session(chat_id, session_id, cwd)
     store.set_binding(chat_id, session_id, cwd, binding.get("model", bot.config["default_model"]),
                       binding.get("permission_mode", bot.config["default_permission_mode"]),
                       effort=binding.get("effort"), name=binding.get("name"))
+    bot.spawn_session(chat_id, session_id, cwd)
     bot.update_chat_description(chat, session_id, cwd)
     return f"cleared — fresh session in {cwd}\nprevious: {old_id}"
 
@@ -111,10 +115,12 @@ def _cmd_resume(args, chat_id, chat, bot):
     binding = store.get_binding(chat_id)
     cwd = binding["cwd"] if binding else bot.config["default_cwd"]
     bot.session_manager.remove(chat_id)
-    session = bot.spawn_session(chat_id, session_id, cwd, resume=True)
     store.set_binding(chat_id, session_id, cwd,
                       binding.get("model", bot.config["default_model"]) if binding else bot.config["default_model"],
-                      binding.get("permission_mode", bot.config["default_permission_mode"]) if binding else bot.config["default_permission_mode"])
+                      binding.get("permission_mode", bot.config["default_permission_mode"]) if binding else bot.config["default_permission_mode"],
+                      effort=binding.get("effort") if binding else None,
+                      name=binding.get("name") if binding else None)
+    bot.spawn_session(chat_id, session_id, cwd, resume=True)
     bot.update_chat_description(chat, session_id, cwd)
     return f"resumed session {session_id} in {cwd}"
 
@@ -164,7 +170,10 @@ def _cmd_model(args, chat_id, chat, bot):
 
     if not args:
         current = _current_model(session, binding, bot)
-        shown = current or "from settings files"
+        if binding and binding.get("model"):
+            shown = f"{current} (chat override)"
+        else:
+            shown = f"{current} (from the cwd's settings files)" if current else "from the cwd's settings files"
         if session and session.init_data:
             models = _get_init_list(session, "models")
             lines = []
@@ -336,7 +345,8 @@ def _cmd_help(args, chat_id, chat, bot):
         "  /stop              — interrupt running turn",
         "",
         "settings:",
-        "  /model [name|default] — show/set model (default = use settings files)",
+        "  /model [name|default] — show/set this chat's model (default = cwd's settings files)",
+        "  /prompt [text|clear] — show/set this chat's purpose (owner-only)",
         "  /mode [name]       — show/cycle/set permission mode",
         "  /cwd [path]        — show/change working directory",
         "  /effort [level]    — show/set effort level",
@@ -348,7 +358,8 @@ def _cmd_help(args, chat_id, chat, bot):
         "  /usage             — cost and context stats",
         "  /send <path>       — send a file to this chat",
         "  /listen            — reply to a message to hear it (TTS)",
-        "  /commission <name> [dir] — new shared chat for a project",
+        "  /commission <name> [dir] [--model m] — new shared chat;",
+        "                     lines after the first become its /prompt",
         "  /help              — this message",
         "",
         "sharing:",
@@ -371,12 +382,28 @@ def _cmd_help(args, chat_id, chat, bot):
     return "\n".join(lines)
 
 
+COMMISSION_USAGE = ("usage: /commission <name> [dir] [--model <model>]\n"
+                    "<purpose, on the following lines — optional>")
+
+
 def _cmd_commission(args, chat_id, chat, bot, sender=None, **_kw):
     if not args:
-        return "usage: /commission <name> [dir]"
-    parts = args.split(None, 1)
-    name = parts[0]
-    cwd = parts[1] if len(parts) > 1 else bot.config["default_cwd"]
+        return COMMISSION_USAGE
+    first, _, purpose = args.partition("\n")
+    purpose = purpose.strip()
+    tokens = first.split()
+    model = None
+    for flag in ("--model", "-m"):
+        if flag in tokens:
+            i = tokens.index(flag)
+            if i + 1 >= len(tokens):
+                return COMMISSION_USAGE
+            model = tokens[i + 1]
+            del tokens[i:i + 2]
+    if not tokens:
+        return COMMISSION_USAGE
+    name = tokens[0]
+    cwd = " ".join(tokens[1:]) or bot.config["default_cwd"]
     cwd = os.path.expanduser(cwd)
     if not _check_root(cwd, bot):
         return f"path not under allowed_roots: {cwd}"
@@ -398,16 +425,48 @@ def _cmd_commission(args, chat_id, chat, bot, sender=None, **_kw):
         group_chat_id = group.id
         session_id = str(uuid.uuid4())
         store.set_binding(group_chat_id, session_id, cwd,
-                          bot.config["default_model"],
+                          model or bot.config["default_model"],
                           bot.config["default_permission_mode"],
                           name=name)
         store.set_shared(group_chat_id, sender or "commission")
+        if purpose:
+            store.set_purpose(group_chat_id, purpose, sender)
         bot.update_chat_description(group, session_id, cwd)
-        group.send_text(f"📂 {name} — {cwd}\nsession {session_id}\nsend a message to start")
+        intro = [f"📂 {name} — {cwd}", f"session {session_id}"]
+        if model:
+            intro.append(f"model: {model}")
+        if purpose:
+            intro.append(f"purpose: {purpose}")
+        intro.append("send a message to start")
+        group.send_text("\n".join(intro))
         return f"created group '{name}' for {cwd}"
     except Exception as e:
         log.exception("commission failed")
         return f"commission failed: {e}"
+
+
+def _cmd_prompt(args, chat_id, chat, bot, sender=None, **_kw):
+    purpose = store.get_purpose(chat_id)
+    if not args:
+        if not purpose:
+            return ("no purpose set for this chat\n"
+                    "/prompt <text> to set one — it's appended to the system prompt, "
+                    "on top of the cwd's CLAUDE.md")
+        return f"purpose:\n{purpose}\n\nfull text appended to the system prompt:\n\n{bot.system_prompt(chat_id)}"
+    if args.lower() in ("clear", "none", "-"):
+        if not purpose:
+            return "no purpose set for this chat"
+        store.clear_purpose(chat_id)
+        msg = "purpose cleared"
+    else:
+        store.set_purpose(chat_id, args, sender)
+        msg = "purpose set"
+    binding = store.get_binding(chat_id)
+    if binding:
+        bot.update_chat_description(chat, binding["session_id"], binding["cwd"])
+        # the running conversation keeps its snapshotted system prompt
+        msg += " — takes effect from the next /clear or /new"
+    return msg
 
 
 def _cmd_share(args, chat_id, chat, bot, sender=None, **_kw):
@@ -519,6 +578,7 @@ HANDLERS = {
     "cost": _cmd_usage,
     "help": _cmd_help,
     "commission": _cmd_commission,
+    "prompt": _cmd_prompt,
     "share": _cmd_share,
     "unshare": _cmd_unshare,
     "maxsessions": _cmd_maxsessions,

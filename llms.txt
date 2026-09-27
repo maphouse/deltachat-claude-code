@@ -11,7 +11,7 @@ This is not an API wrapper or chatbot skin. It bridges the real `claude` binary 
 - Full Claude Code CLI over chat (not an API wrapper)
 - Encrypted and decentralized via Delta Chat (no third-party sees your prompts)
 - No signup, no phone number, no account — install Delta Chat and message the bot
-- Project-based chats with `/commission` — each project gets its own session and avatar
+- Project-based chats with `/commission` — each project gets its own session and avatar, plus an optional per-chat purpose (appended system prompt) and model override
 - Voice memo transcription via faster-whisper
 - Reply-to context: swipe-reply on any message to reference it
 - Session portability: resume chat sessions in a terminal and vice versa

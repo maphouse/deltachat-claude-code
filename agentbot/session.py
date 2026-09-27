@@ -45,12 +45,13 @@ def control_ok(resp: dict | None) -> tuple[bool, dict, str]:
 class Session:
     def __init__(self, session_id: str, cwd: str, model: str,
                  permission_mode: str, effort: str = None,
-                 resume: bool = False, on_event=None):
+                 resume: bool = False, on_event=None, system_prompt: str = None):
         self.session_id = session_id
         self.cwd = cwd
         self.model = model
         self.permission_mode = permission_mode
         self.effort = effort
+        self.system_prompt = system_prompt
         self.on_event = on_event
         self.proc = None
         self._reader_thread = None
@@ -79,11 +80,16 @@ class Session:
             cmd.extend(["--session-id", self.session_id])
         if self.effort:
             cmd.extend(["--effort", self.effort])
+        # Claude Code snapshots this on the conversation's first request and a
+        # --resume keeps the snapshot, so edits land on the next /clear or /new
+        if self.system_prompt:
+            cmd.extend(["--append-system-prompt", self.system_prompt])
         return cmd
 
     def _start(self, resume: bool = False):
         cmd = self._build_cmd(resume)
-        log.info("spawning: %s (cwd=%s)", " ".join(cmd), self.cwd)
+        shown = [f"<{len(a)} chars>" if a == self.system_prompt else a for a in cmd]
+        log.info("spawning: %s (cwd=%s)", " ".join(shown), self.cwd)
         self.proc = subprocess.Popen(
             cmd, stdin=subprocess.PIPE, stdout=subprocess.PIPE,
             stderr=subprocess.PIPE, text=True, bufsize=1,

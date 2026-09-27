@@ -103,6 +103,7 @@ class AgentBot:
         model = binding.get("model", self.config["default_model"]) if binding else self.config["default_model"]
         perm = binding.get("permission_mode", self.config["default_permission_mode"]) if binding else self.config["default_permission_mode"]
         effort = binding.get("effort") if binding else None
+        system_prompt = self.system_prompt(chat_id)
 
         renderer = self._renderers.get(chat_id)
         if not renderer:
@@ -121,13 +122,43 @@ class AgentBot:
         session = Session(
             session_id=session_id, cwd=cwd, model=model,
             permission_mode=perm, effort=effort,
-            resume=resume, on_event=on_event,
+            resume=resume, on_event=on_event, system_prompt=system_prompt,
         )
         self.session_manager.register(chat_id, session)
         return session
 
+    def system_prompt(self, chat_id: int) -> str:
+        """Appended to Claude Code's own prompt: the DC channel preamble, then
+        this chat's purpose. Layers on top of the cwd's CLAUDE.md, never replaces it."""
+        binding = store.get_binding(chat_id)
+        name = binding.get("name") if binding else None
+        lines = [
+            "You are being used through agentbot: the user talks to you over Delta Chat "
+            "(an encrypted messenger), often from a phone. Each of your text replies is "
+            "sent as a chat message, so keep them concise; light markdown is fine but "
+            "avoid wide tables and long code dumps unless asked.",
+            "Files the user sends are saved under .agentbot-inbox/ in the working "
+            "directory and appear as [attached: <path>]; voice memos arrive already "
+            "transcribed. You can't send files yourself — the user can fetch one with "
+            "/send <path>.",
+            "The user may reset this conversation with /clear; anything that should "
+            "outlive it belongs in files (e.g. the project's CLAUDE.md).",
+        ]
+        if name:
+            lines.append(f"This chat is named \"{name}\".")
+        if store.is_shared(chat_id):
+            lines.append("This chat is shared: messages may come from people other than "
+                         "the owner, and you can't tell who sent which.")
+        purpose = store.get_purpose(chat_id)
+        if purpose:
+            lines.append("\nPurpose of this chat, set by its owner:\n" + purpose)
+        return "\n".join(lines)
+
     def update_chat_description(self, chat, session_id: str, cwd: str):
         desc = f"session: {session_id}\ncwd: {cwd}\nresume: claude --resume {session_id}"
+        purpose = store.get_purpose(chat.id)
+        if purpose:
+            desc = f"{purpose}\n\n{desc}"
         try:
             chat._rpc.set_chat_description(chat.account.id, chat.id, desc)
         except Exception:
@@ -237,9 +268,14 @@ class AgentBot:
         cwd = binding["cwd"] if binding else self.config["default_cwd"]
         session_id = str(uuid.uuid4())
         had_binding = binding is not None
-        store.set_binding(chat_id, session_id, cwd,
-                          self.config["default_model"],
-                          self.config["default_permission_mode"])
+        if binding:
+            store.set_binding(chat_id, session_id, cwd, binding.get("model"),
+                              binding.get("permission_mode") or self.config["default_permission_mode"],
+                              effort=binding.get("effort"), name=binding.get("name"))
+        else:
+            store.set_binding(chat_id, session_id, cwd,
+                              self.config["default_model"],
+                              self.config["default_permission_mode"])
         if not had_binding:
             self.update_chat_description(chat, session_id, cwd)
         return self.spawn_session(chat_id, session_id, cwd)

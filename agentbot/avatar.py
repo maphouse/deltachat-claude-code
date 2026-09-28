@@ -1,4 +1,6 @@
 import colorsys
+import hashlib
+import os
 import random
 from pathlib import Path
 
@@ -13,12 +15,19 @@ BLACK = (17, 17, 17, 255)
 WHITE = (255, 255, 255, 255)
 
 
-def random_color() -> tuple[int, int, int, int]:
-    h = random.random()
-    s = random.uniform(0.55, 0.85)
-    l = random.uniform(0.45, 0.65)
+def random_color(rng=random) -> tuple[int, int, int, int]:
+    h = rng.random()
+    s = rng.uniform(0.55, 0.85)
+    l = rng.uniform(0.45, 0.65)
     r, g, b = colorsys.hls_to_rgb(h, l, s)
     return (int(r * 255), int(g * 255), int(b * 255), 255)
+
+
+def color_for_path(path: str) -> tuple[int, int, int, int]:
+    """Stable color per directory, so chats sharing a cwd share a color."""
+    key = os.path.realpath(os.path.expanduser(path))
+    seed = hashlib.sha256(key.encode()).digest()
+    return random_color(random.Random(seed))
 
 
 def random_face() -> list[list[bool]]:

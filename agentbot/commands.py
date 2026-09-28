@@ -6,7 +6,7 @@ import uuid
 from pathlib import Path
 
 from . import store
-from .avatar import make_avatar
+from .avatar import color_for_path, make_avatar
 from .session import control_ok
 
 log = logging.getLogger("agentbot.commands")
@@ -448,7 +448,7 @@ def _cmd_commission(args, chat_id, chat, bot, sender=None, **_kw):
         try:
             avatar_path = Path(bot.bot_dir) / "avatars" / f"{name}.png"
             avatar_path.parent.mkdir(exist_ok=True)
-            make_avatar(avatar_path)
+            make_avatar(avatar_path, color=color_for_path(cwd))
             group.set_image(str(avatar_path))
         except Exception:
             log.warning("avatar for group %r failed", name, exc_info=True)

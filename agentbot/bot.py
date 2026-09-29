@@ -212,7 +212,7 @@ class AgentBot:
         return "\n\n".join(parts)
 
     def update_chat_description(self, chat, session_id: str, cwd: str):
-        desc = f"session: {session_id}\ncwd: {cwd}\nresume: claude --resume {session_id}"
+        desc = f"session: {session_id}\ncwd: {cwd}"
         chat_prompt = store.get_chat_prompt(chat.id)
         if chat_prompt:
             desc = f"{chat_prompt}\n\n{desc}"

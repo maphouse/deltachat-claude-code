@@ -40,7 +40,7 @@ class ChatRenderer:
         self._turn_tool_count = 0
         self._pending_tools: dict[str, str] = {}
         self._show_bash_output = False
-        # sent msg id -> the whole reply it's part of, so /review on one chunk
+        # sent msg id -> the whole reply it's part of, so /annotate on one chunk
         # of a split reply gets all of it
         self._reply_text: dict[int, str] = {}
 

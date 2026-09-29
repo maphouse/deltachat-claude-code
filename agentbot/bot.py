@@ -214,7 +214,7 @@ class AgentBot:
                 if rv and rv["chat_id"] == chat_id:
                     try:
                         v = review.post_revision(self.account, rv, revised)
-                        note = f"📝 posted v{v} to review #{rid}"
+                        note = f"📝 posted v{v} to annotation #{rid}"
                     except Exception:
                         log.exception("posting revision to review %d failed", rid)
                         note = revised

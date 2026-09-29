@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
-<title>Review</title>
+<title>Annotate</title>
 <script src="webxdc.js"></script>
 <style>
   :root {
@@ -87,7 +87,7 @@
 </head>
 <body>
 <header>
-  <h1 id="title">Review</h1>
+  <h1 id="title">Annotate</h1>
   <span id="versions"></span>
 </header>
 <div class="hint" id="hint">Tap a word to comment on it; tap a second word to extend the selection.</div>
@@ -349,7 +349,7 @@
 
   function renderAll() {
     var d = docs[curV];
-    $("title").textContent = d && d.title ? d.title : "Review";
+    $("title").textContent = d && d.title ? d.title : "Annotate";
     renderVersions();
     renderDoc();
     renderNotes();

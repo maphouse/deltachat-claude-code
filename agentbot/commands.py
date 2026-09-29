@@ -26,12 +26,12 @@ def classify(text: str) -> tuple[str, str] | None:
     return m.group(1).lower(), (m.group(2) or "").strip()
 
 
-_CTX_COMMANDS = {"listen", "review", "commission", "share", "prompt"}
+_CTX_COMMANDS = {"listen", "annotate", "commission", "share", "prompt"}
 
 # Commands a guest (non-owner in a shared chat) may run. Everything else in
 # HANDLERS is owner-only; unknown /commands still pass through to Claude Code.
 GUEST_COMMANDS = {"stop", "clear", "model", "effort", "verbose", "usage", "cost",
-                  "help", "listen", "review"}
+                  "help", "listen", "annotate"}
 
 
 def handle(cmd: str, args: str, chat_id: int, chat, bot, owner: bool = True,
@@ -358,7 +358,7 @@ def _cmd_help(args, chat_id, chat, bot):
         "  /usage             — cost and context stats",
         "  /send <path>       — send a file to this chat",
         "  /listen            — reply to a message to hear it (TTS)",
-        "  /review            — reply to a message to annotate it in an app",
+        "  /annotate          — reply to a message to annotate it in an app",
         "  /commission <name> [dir] [--model m] [--system-prompt 'text']",
         "                     — new shared chat for a project",
         "  /help              — this message",
@@ -542,17 +542,17 @@ def _cmd_listen(args, chat_id, chat, bot, quoted=None, **_kw):
     return ""
 
 
-def _cmd_review(args, chat_id, chat, bot, quoted=None, quoted_id=None, **_kw):
+def _cmd_annotate(args, chat_id, chat, bot, quoted=None, quoted_id=None, **_kw):
     text = bot.quoted_text(chat_id, quoted_id, quoted)
     if not text:
-        return "reply to a message with /review to annotate it"
+        return "reply to a message with /annotate to annotate it"
     from . import review
     binding = store.get_binding(chat_id)
     try:
         review.start(chat, text, binding["session_id"] if binding else None)
     except Exception as e:
-        log.exception("review failed")
-        return f"couldn't start review: {e}"
+        log.exception("annotate failed")
+        return f"couldn't start annotation: {e}"
     return ""
 
 
@@ -635,6 +635,6 @@ HANDLERS = {
     "maxsessions": _cmd_maxsessions,
     "send": _cmd_send,
     "listen": _cmd_listen,
-    "review": _cmd_review,
+    "annotate": _cmd_annotate,
     "continue-after-reset": _cmd_continue_after_reset,
 }

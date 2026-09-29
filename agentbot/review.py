@@ -1,4 +1,4 @@
-"""/review: one of Claude's messages goes into a webxdc app where the user
+"""/annotate: one of Claude's messages goes into a webxdc app where the user
 selects words or phrases and annotates them; the notes come back as a turn.
 
 Protocol (webxdc status-update payloads):
@@ -65,7 +65,7 @@ def post_revision(account, review: dict, text: str) -> int:
     from deltachat_rpc_client import Message
     v = store.add_review_version(review["id"], text)
     Message(account, review["msg_id"]).send_webxdc_status_update(
-        _doc_update(v, text, info=f"Claude posted v{v} of review #{review['id']}"), "")
+        _doc_update(v, text, info=f"Claude posted v{v} of annotation #{review['id']}"), "")
     return v
 
 
@@ -95,7 +95,7 @@ def ack(account, review: dict, batch_id: str):
 def format_notes(review: dict, batch: dict, include_text: bool) -> str:
     """Turn a notes batch into the turn Claude sees."""
     v = batch.get("v") or len(review["versions"])
-    lines = [f"[review #{review['id']}, v{v}: notes on your message]"]
+    lines = [f"[annotation #{review['id']}, v{v}: notes on your message]"]
     if include_text:
         versions = review["versions"]
         text = versions[v - 1] if 0 < v <= len(versions) else versions[-1]
@@ -110,7 +110,7 @@ def format_notes(review: dict, batch: dict, include_text: bool) -> str:
     lines.append("")
     lines.append(f"Reply normally. If a revised version of the text would help, wrap it in "
                  f"<revision review=\"{review['id']}\">…</revision> in your reply; it is posted "
-                 f"into the review app as v{len(review['versions']) + 1} instead of the chat.")
+                 f"into the annotation app as v{len(review['versions']) + 1} instead of the chat.")
     return "\n".join(lines)
 
 

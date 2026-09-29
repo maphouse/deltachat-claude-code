@@ -11,7 +11,7 @@ from pathlib import Path
 from deltachat_rpc_client import Client, DeltaChat, Rpc, events
 from deltachat_rpc_client.events import EventType
 
-from . import commands, store
+from . import commands, review, store
 
 # The RPC server may emit event types newer than the Python client knows about
 # (e.g. IncomingWebxdcNotify). Patch the event loop to skip unknown types
@@ -88,6 +88,7 @@ belongs in files (e.g. the project's CLAUDE.md)."""
 class AgentBot:
     def __init__(self):
         self.bot_dir = BOT_DIR
+        self.account = None
         self.config = self._load_config()
         store.init_db()
         self.session_manager = SessionManager(
@@ -99,6 +100,8 @@ class AgentBot:
         self.continue_after_reset = (saved == "1") if saved is not None else self.config.get("continue_after_reset", False)
         self._continue_timers: dict[int, threading.Timer] = {}
         self._rate_limited_chats: set[int] = set()
+        # chat -> review whose notes Claude saw last; a bare <revision> goes there
+        self._active_review: dict[int, int] = {}
 
     def _load_config(self) -> dict:
         with open(BOT_DIR / "config.toml", "rb") as f:
@@ -126,6 +129,8 @@ class AgentBot:
 
         def on_event(event):
             etype = event.get("type")
+            if etype == "assistant":
+                self._post_revisions(chat_id, event)
             if etype in ("assistant", "result", "user"):
                 renderer.handle_event(event)
             if etype == "result":
@@ -195,6 +200,28 @@ class AgentBot:
                 if self.continue_after_reset:
                     self._schedule_continue(chat_id, m.group(1))
                 return
+
+    def _post_revisions(self, chat_id: int, event: dict):
+        """Move <revision> blocks out of Claude's reply and into their review
+        apps, leaving a one-line pointer in the chat text."""
+        for block in event.get("message", {}).get("content", []):
+            if block.get("type") != "text" or "<revision" not in block.get("text", ""):
+                continue
+            text, found = review.extract_revisions(block["text"],
+                                                   self._active_review.get(chat_id))
+            for i, (rid, revised) in enumerate(found):
+                rv = store.get_review(rid)
+                if rv and rv["chat_id"] == chat_id:
+                    try:
+                        v = review.post_revision(self.account, rv, revised)
+                        note = f"📝 posted v{v} to review #{rid}"
+                    except Exception:
+                        log.exception("posting revision to review %d failed", rid)
+                        note = revised
+                else:
+                    note = revised
+                text = text.replace(f"\x00{i}\x00", note)
+            block["text"] = text
 
     def _log_rate_limit_result(self, chat_id: int, event: dict):
         if chat_id not in self._rate_limited_chats:
@@ -331,6 +358,7 @@ class AgentBot:
 
         quote_obj = getattr(snapshot, "quote", None)
         quoted = quote_obj.text.strip() if quote_obj and getattr(quote_obj, "text", None) else None
+        quoted_id = getattr(quote_obj, "message_id", None) if quote_obj else None
 
         if snapshot.file:
             text = self._handle_attachment(chat_id, snapshot, text)
@@ -342,7 +370,7 @@ class AgentBot:
         if parsed:
             cmd, args = parsed
             result = commands.handle(cmd, args, chat_id, chat, self, owner=owner,
-                                     quoted=quoted, sender=sender)
+                                     quoted=quoted, quoted_id=quoted_id, sender=sender)
             if result is not None:
                 if result:
                     chat.send_text(result)
@@ -352,11 +380,19 @@ class AgentBot:
         if quoted and text:
             text = f"[replying to: \"{quoted}\"]\n{text}"
 
+        if text:
+            if text.startswith("!"):
+                renderer._show_bash_output = True
+            self._deliver(chat_id, chat, text)
+
+    def _deliver(self, chat_id: int, chat, text: str) -> bool:
+        """Hand a user turn to the chat's session, starting or reviving it."""
+        renderer = self._ensure_renderer(chat_id, chat)
         session = self._ensure_session(chat_id, chat)
         if not session:
             chat.send_text("failed to start session — check logs")
             renderer.react_done(error=True)
-            return
+            return False
 
         if not session.alive:
             binding = store.get_binding(chat_id)
@@ -367,12 +403,61 @@ class AgentBot:
             if not session or not session.alive:
                 chat.send_text("session died — try /new or /clear")
                 renderer.react_done(error=True)
-                return
+                return False
 
-        if text:
-            if text.startswith("!"):
-                renderer._show_bash_output = True
-            session.send_user(text)
+        session.send_user(text)
+        return True
+
+    def quoted_text(self, chat_id: int, msg_id: int | None, fallback: str | None) -> str | None:
+        """The full text of a quoted message: the whole reply if it was one
+        chunk of a split reply, else the message itself, else the quote."""
+        if msg_id:
+            renderer = self._renderers.get(chat_id)
+            full = renderer.reply_text(msg_id) if renderer else None
+            if full:
+                return full
+            try:
+                from deltachat_rpc_client import Message
+                text = Message(self.account, msg_id).get_snapshot().text
+                if text and text.strip():
+                    return text.strip()
+            except Exception:
+                log.debug("could not load quoted message %s", msg_id, exc_info=True)
+        return fallback
+
+    def _review_trusted(self, chat) -> bool:
+        """Webxdc updates don't say who sent them, so notes are only taken from
+        chats where anyone who could have sent them may use the bot: every
+        member an owner, or a shared chat still holding an owner."""
+        if store.is_shared(chat.id):
+            return self._guest_allowed(chat)
+        owners = set(self.config["admin_addresses"])
+        me = self.account.get_config("addr")
+        return all(c.get_snapshot().address in owners | {me} for c in chat.get_contacts())
+
+    def handle_webxdc_update(self, event):
+        rv = store.get_review_by_msg(event.msg_id)
+        if not rv:
+            return
+        batches = review.collect_notes(self.account, rv)
+        if not batches:
+            return
+        chat = self.account.get_chat_by_id(rv["chat_id"])
+        if not self._review_trusted(chat):
+            log.warning("ignoring review notes in chat %d (untrusted members)", chat.id)
+            return
+        binding = store.get_binding(chat.id)
+        same_session = binding and binding["session_id"] == rv["session_id"]
+        for batch in batches:
+            log.info("review #%d: %d notes in chat %d", rv["id"], len(batch["notes"]), chat.id)
+            self._cancel_continue(chat.id)
+            renderer = self._ensure_renderer(chat.id, chat)
+            renderer.set_inbound(rv["msg_id"])
+            renderer.react_receipt()
+            self._active_review[chat.id] = rv["id"]
+            text = review.format_notes(rv, batch, include_text=not same_session)
+            if self._deliver(chat.id, chat, text):
+                review.ack(self.account, rv, batch.get("id", ""))
 
     def _handle_attachment(self, chat_id: int, snapshot, text: str) -> str:
         binding = store.get_binding(chat_id)
@@ -424,9 +509,12 @@ class AgentBot:
                 return
             account = accounts[0]
             log.info("running as %s", account.get_config("addr"))
+            self.account = account
             client = Client(
                 account,
-                hooks=[(self.handle_message, events.NewMessage(is_info=False))],
+                hooks=[(self.handle_message, events.NewMessage(is_info=False)),
+                       (self.handle_webxdc_update,
+                        events.RawEvent(EventType.WEBXDC_STATUS_UPDATE))],
             )
             client.run_forever()
 

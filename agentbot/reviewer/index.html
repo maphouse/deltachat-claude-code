@@ -1,0 +1,467 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, interactive-widget=resizes-content">
+<title>Review</title>
+<script src="webxdc.js"></script>
+<style>
+  :root {
+    --bg: #fff; --fg: #1d1d1f; --dim: #86868b; --line: #e5e5ea; --card: #f5f5f7;
+    --accent: #0a7cff; --draft: #ffe58f; --sent: #b9dcff; --sel: #ffcf5c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1c1c1e; --fg: #f2f2f7; --dim: #8e8e93; --line: #38383a; --card: #2c2c2e;
+      --accent: #409cff; --draft: #6b5a1e; --sent: #1f4468; --sel: #8a6d1a;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--fg);
+    font: 16px/1.55 -apple-system, system-ui, "Segoe UI", Roboto, sans-serif;
+    -webkit-user-select: none; user-select: none;
+    padding-bottom: 50vh;
+  }
+  header {
+    position: sticky; top: 0; z-index: 2; background: var(--bg);
+    border-bottom: 1px solid var(--line); padding: 10px 14px;
+    display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  }
+  header h1 { font-size: 15px; margin: 0; flex: 1 1 auto; min-width: 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .vchip { border: 1px solid var(--line); background: var(--card); color: var(--fg);
+    border-radius: 12px; padding: 2px 10px; font-size: 13px; }
+  .vchip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .hint { color: var(--dim); font-size: 13px; padding: 8px 14px 0; }
+  #doc { padding: 6px 14px 10px; }
+  .ln { min-height: 1.55em; white-space: pre-wrap; word-wrap: break-word; }
+  .ln.blank { min-height: .8em; }
+  .ln.h { font-weight: 700; font-size: 1.08em; margin-top: .3em; }
+  .ln.li { padding-left: 1.2em; text-indent: -1.2em; }
+  .ln.code { font-family: ui-monospace, Menlo, monospace; font-size: 13px;
+    background: var(--card); white-space: pre; overflow-x: auto; }
+  .w { border-radius: 3px; cursor: pointer; }
+  .w.b { font-weight: 700; }
+  .w.c { font-family: ui-monospace, Menlo, monospace; font-size: .9em; }
+  .w.mk { display: none; }
+  .w.hs { background: var(--sent); }
+  .w.hd { background: var(--draft); }
+  .w.sel { background: var(--sel); outline: 1px solid var(--sel); }
+  sup.n { font-size: 10px; color: var(--accent); font-weight: 700; margin-left: 1px; }
+  section { border-top: 1px solid var(--line); padding: 10px 14px; }
+  section h2 { font-size: 13px; text-transform: uppercase; letter-spacing: .04em;
+    color: var(--dim); margin: 0 0 6px; }
+  .note { background: var(--card); border-radius: 10px; padding: 8px 10px; margin: 6px 0;
+    display: flex; gap: 8px; align-items: flex-start; }
+  .note .body { flex: 1; min-width: 0; }
+  .note q { display: block; color: var(--dim); font-size: 13px; font-style: italic;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .note q::before, .note q::after { content: ""; }
+  .note .cm { white-space: pre-wrap; word-wrap: break-word; }
+  .note .num { color: var(--accent); font-weight: 700; font-size: 13px; }
+  .meta { color: var(--dim); font-size: 12px; margin: 8px 0 2px; }
+  button { font: inherit; }
+  .btn { border: 0; border-radius: 10px; padding: 9px 14px; background: var(--card);
+    color: var(--fg); }
+  .btn.pri { background: var(--accent); color: #fff; }
+  .btn:disabled { opacity: .45; }
+  .x { border: 0; background: none; color: var(--dim); font-size: 18px; padding: 0 4px; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+  #sheet {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 3;
+    background: var(--bg); border-top: 1px solid var(--line);
+    box-shadow: 0 -4px 16px rgba(0,0,0,.12); padding: 10px 14px 14px;
+    display: none;
+  }
+  #sheet.open { display: block; }
+  #sheet q::before, #sheet q::after { content: ""; }
+  #sheet q { display: block; color: var(--dim); font-style: italic; font-size: 13px;
+    max-height: 4.5em; overflow: auto; }
+  #sheet .tip { color: var(--dim); font-size: 12px; margin: 4px 0; }
+  textarea { width: 100%; min-height: 70px; font: inherit; color: var(--fg);
+    background: var(--card); border: 1px solid var(--line); border-radius: 8px;
+    padding: 8px; -webkit-user-select: text; user-select: text; resize: vertical; }
+  .empty { color: var(--dim); font-size: 14px; }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="title">Review</h1>
+  <span id="versions"></span>
+</header>
+<div class="hint" id="hint">Tap a word to comment on it; tap a second word to extend the selection.</div>
+<div id="doc"><p class="empty">Waiting for the text…</p></div>
+
+<section>
+  <h2>Your notes</h2>
+  <div id="drafts"></div>
+  <div class="row">
+    <button class="btn" id="general">+ General note</button>
+    <button class="btn pri" id="send" disabled>Send</button>
+  </div>
+</section>
+<section id="sentSec" hidden>
+  <h2>Sent</h2>
+  <div id="sent"></div>
+</section>
+
+<div id="sheet">
+  <q id="sheetQuote"></q>
+  <div class="tip" id="sheetTip"></div>
+  <textarea id="sheetText" placeholder="Comment, correction, answer…"></textarea>
+  <div class="row">
+    <button class="btn pri" id="sheetSave">Add note</button>
+    <button class="btn" id="sheetPara">¶ Whole paragraph</button>
+    <button class="btn" id="sheetCancel">Cancel</button>
+    <button class="btn" id="sheetDelete" hidden>Delete</button>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  var xdc = window.webxdc;
+  var docs = {};        // v -> {text, title}
+  var sent = [];        // {id, v, notes, name}
+  var acked = {};       // batch id -> true
+  var seen = {};        // batch id -> true (replay dedupe)
+  var curV = 0;         // version on screen
+  var followLatest = true;
+  var words = [];       // [{s, e, para}] for curV
+  var sel = null;       // {a, b, edit} — word indexes, edit = draft index or -1/null
+  var general = false;  // sheet is for a general (unanchored) note
+
+  function $(id) { return document.getElementById(id); }
+  function latestV() {
+    var m = 0;
+    for (var k in docs) m = Math.max(m, +k);
+    return m;
+  }
+
+  // ---- drafts live in localStorage until sent; per version -------------
+  function dkey(v) { return "drafts:" + v; }
+  function loadDrafts(v) {
+    try { return JSON.parse(localStorage.getItem(dkey(v)) || "[]"); }
+    catch (e) { return []; }
+  }
+  function saveDrafts(v, d) { localStorage.setItem(dkey(v), JSON.stringify(d)); }
+
+  // ---- tokenising + light markdown -------------------------------------
+  // Words are maximal non-whitespace runs; offsets index the raw text so a
+  // quote is always an exact slice of what Claude wrote.
+  function tokenize(text) {
+    var out = [], re = /\S+/g, m, para = 0, lastEnd = 0, prevHead = false;
+    while ((m = re.exec(text))) {
+      var gap = text.slice(lastEnd, m.index);
+      if (gap.indexOf("\n") >= 0) {
+        var ls = text.lastIndexOf("\n", m.index - 1) + 1;
+        var line = text.slice(ls, text.indexOf("\n", ls) < 0 ? text.length : text.indexOf("\n", ls));
+        if (/\n[ \t]*\n/.test(gap) || prevHead || /^\s*(#{1,6}\s|[-*•]\s|\d+[.)]\s)/.test(line)) para++;
+        prevHead = /^#{1,6}\s/.test(line);
+      } else if (!out.length) {
+        prevHead = /^#{1,6}\s/.test(text);
+      }
+      out.push({ s: m.index, e: m.index + m[0].length, para: para });
+      lastEnd = m.index + m[0].length;
+    }
+    return out;
+  }
+
+  function quoteOf(a, b) {
+    var t = docs[curV].text;
+    return t.slice(words[a].s, words[b].e);
+  }
+
+  function renderDoc() {
+    var d = docs[curV];
+    var root = $("doc");
+    root.textContent = "";
+    if (!d) {
+      var p = document.createElement("p");
+      p.className = "empty"; p.textContent = "Waiting for the text…";
+      root.appendChild(p);
+      return;
+    }
+    var text = d.text;
+    words = tokenize(text);
+    var lines = text.split("\n");
+    var off = 0, wi = 0, bold = false, code = false, fence = false;
+    lines.forEach(function (line) {
+      var div = document.createElement("div");
+      div.className = "ln";
+      var lineStart = off, lineEnd = off + line.length;
+      var isFence = /^\s*```/.test(line);
+      if (isFence) fence = !fence;
+      if (!line.trim()) div.className += " blank";
+      else if (fence || isFence) div.className += " code";
+      else if (/^#{1,6}\s/.test(line)) div.className += " h";
+      else if (/^\s*([-*•]|\d+[.)])\s/.test(line)) div.className += " li";
+      var inCode = fence || isFence;
+      var pos = lineStart;
+      while (wi < words.length && words[wi].s < lineEnd) {
+        var w = words[wi];
+        var prevMk = div.lastChild && div.lastChild.classList && div.lastChild.classList.contains("mk");
+        if (w.s > pos && !prevMk) div.appendChild(document.createTextNode(text.slice(pos, w.s)));
+        var raw = text.slice(w.s, w.e);
+        var span = document.createElement("span");
+        span.className = "w";
+        span.dataset.i = wi;
+        var shown = raw;
+        if (inCode || isFence) {
+          if (isFence) span.className += " mk";
+        } else if (w.s === lineStart && /^#{1,6}$/.test(raw) && div.className.indexOf(" h") >= 0) {
+          span.className += " mk";
+        } else {
+          // ** toggles bold, ` toggles inline code; markers are hidden, the
+          // raw text (and so the quote) keeps them.
+          var startBold = bold, startCode = code;
+          var nb = (raw.match(/\*\*/g) || []).length;
+          var nc = (raw.match(/`/g) || []).length;
+          if (/^\*\*/.test(raw) || /^[(\["']?\*\*/.test(raw)) startBold = !bold;
+          if (/^[(\["']?`/.test(raw)) startCode = !code;
+          if (nb % 2) bold = !bold;
+          if (nc % 2) code = !code;
+          shown = raw.replace(/\*\*/g, "").replace(/`/g, "");
+          if (startBold || bold) span.className += " b";
+          if (startCode || code) span.className += " c";
+          if (!shown) span.className += " mk";
+        }
+        span.textContent = shown;
+        div.appendChild(span);
+        pos = w.e;
+        wi++;
+      }
+      if (lineEnd > pos) div.appendChild(document.createTextNode(text.slice(pos, lineEnd)));
+      root.appendChild(div);
+      off = lineEnd + 1;
+    });
+    paintHighlights();
+  }
+
+  function paintHighlights() {
+    var spans = document.querySelectorAll("#doc .w");
+    var cls = new Array(spans.length).fill("");
+    var marks = {};
+    sent.forEach(function (b) {
+      if (b.v !== curV) return;
+      b.notes.forEach(function (n) {
+        if (n.start == null) return;
+        for (var i = n.start; i <= n.end && i < cls.length; i++) cls[i] = "hs";
+      });
+    });
+    loadDrafts(curV).forEach(function (n, k) {
+      if (n.start == null) return;
+      for (var i = n.start; i <= n.end && i < cls.length; i++) cls[i] = "hd";
+      marks[n.end] = (marks[n.end] ? marks[n.end] + "," : "") + (k + 1);
+    });
+    if (sel && !general) {
+      var lo = Math.min(sel.a, sel.b), hi = Math.max(sel.a, sel.b);
+      for (var j = lo; j <= hi; j++) cls[j] = "sel";
+    }
+    document.querySelectorAll("#doc sup.n").forEach(function (s) { s.remove(); });
+    spans.forEach(function (s, i) {
+      s.classList.remove("hs", "hd", "sel");
+      if (cls[i]) s.classList.add(cls[i]);
+      if (marks[i]) {
+        var sup = document.createElement("sup");
+        sup.className = "n"; sup.textContent = marks[i];
+        s.after(sup);
+      }
+    });
+  }
+
+  function renderVersions() {
+    var box = $("versions");
+    box.textContent = "";
+    var vs = Object.keys(docs).map(Number).sort(function (a, b) { return a - b; });
+    if (vs.length < 2) return;
+    vs.forEach(function (v) {
+      var b = document.createElement("button");
+      b.className = "vchip" + (v === curV ? " on" : "");
+      b.textContent = "v" + v;
+      b.onclick = function () {
+        closeSheet();
+        curV = v; followLatest = (v === latestV());
+        renderAll();
+      };
+      box.appendChild(b);
+    });
+  }
+
+  function noteEl(n, label) {
+    var el = document.createElement("div");
+    el.className = "note";
+    var body = document.createElement("div");
+    body.className = "body";
+    var num = document.createElement("span");
+    num.className = "num"; num.textContent = label + " ";
+    var q = document.createElement("q");
+    q.textContent = n.quote != null ? "“" + n.quote + "”" : "general note";
+    var cm = document.createElement("div");
+    cm.className = "cm"; cm.textContent = n.comment;
+    body.appendChild(q);
+    cm.prepend(num);
+    body.appendChild(cm);
+    el.appendChild(body);
+    return el;
+  }
+
+  function renderNotes() {
+    var drafts = loadDrafts(curV);
+    var box = $("drafts");
+    box.textContent = "";
+    if (!drafts.length) {
+      var p = document.createElement("div");
+      p.className = "empty"; p.textContent = "No notes yet.";
+      box.appendChild(p);
+    }
+    drafts.forEach(function (n, k) {
+      var el = noteEl(n, k + 1);
+      el.onclick = function () { openSheet(n.start, n.end, k); };
+      var x = document.createElement("button");
+      x.className = "x"; x.textContent = "×"; x.title = "delete";
+      x.onclick = function (ev) {
+        ev.stopPropagation();
+        var d = loadDrafts(curV); d.splice(k, 1); saveDrafts(curV, d);
+        renderNotes(); paintHighlights();
+      };
+      el.appendChild(x);
+      box.appendChild(el);
+    });
+    var sendBtn = $("send");
+    sendBtn.disabled = !drafts.length || !docs[curV];
+    sendBtn.textContent = drafts.length ? "Send " + drafts.length + " note" + (drafts.length > 1 ? "s" : "") : "Send";
+
+    var sb = $("sent");
+    sb.textContent = "";
+    var mine = sent.filter(function (b) { return b.v === curV; });
+    $("sentSec").hidden = !mine.length;
+    mine.forEach(function (b) {
+      var m = document.createElement("div");
+      m.className = "meta";
+      m.textContent = (b.name || "someone") + " · " + b.notes.length + " note" +
+        (b.notes.length > 1 ? "s" : "") + (acked[b.id] ? " · delivered ✓" : " · sending…");
+      sb.appendChild(m);
+      b.notes.forEach(function (n, k) { sb.appendChild(noteEl(n, k + 1)); });
+    });
+  }
+
+  function renderAll() {
+    var d = docs[curV];
+    $("title").textContent = d && d.title ? d.title : "Review";
+    renderVersions();
+    renderDoc();
+    renderNotes();
+  }
+
+  // ---- the comment sheet -----------------------------------------------
+  function openSheet(a, b, edit) {
+    general = a == null;
+    sel = { a: a, b: b, edit: edit == null ? -1 : edit };
+    var d = sel.edit >= 0 ? loadDrafts(curV)[sel.edit] : null;
+    $("sheetText").value = d ? d.comment : "";
+    $("sheetSave").textContent = sel.edit >= 0 ? "Save" : "Add note";
+    $("sheetDelete").hidden = sel.edit < 0;
+    $("sheetPara").hidden = general;
+    $("sheet").classList.add("open");
+    updateSheet();
+    paintHighlights();
+  }
+  function updateSheet() {
+    if (general) {
+      $("sheetQuote").textContent = "General note — not tied to a passage";
+      $("sheetTip").textContent = "";
+      return;
+    }
+    var lo = Math.min(sel.a, sel.b), hi = Math.max(sel.a, sel.b);
+    $("sheetQuote").textContent = "“" + quoteOf(lo, hi) + "”";
+    $("sheetTip").textContent = lo === hi ? "Tap another word to extend the selection." :
+      "Tap a word to move the end of the selection.";
+  }
+  function closeSheet() {
+    sel = null; general = false;
+    $("sheet").classList.remove("open");
+    $("sheetText").blur();
+    paintHighlights();
+  }
+
+  $("doc").addEventListener("click", function (ev) {
+    var t = ev.target.closest(".w");
+    if (!t) return;
+    var i = +t.dataset.i;
+    if (sel && !general) {
+      sel.b = i;
+      updateSheet(); paintHighlights();
+    } else {
+      openSheet(i, i, -1);
+    }
+  });
+
+  $("sheetPara").onclick = function () {
+    var p = words[sel.a].para, lo = sel.a, hi = sel.a;
+    while (lo > 0 && words[lo - 1].para === p) lo--;
+    while (hi < words.length - 1 && words[hi + 1].para === p) hi++;
+    sel.a = lo; sel.b = hi;
+    updateSheet(); paintHighlights();
+  };
+  $("sheetCancel").onclick = closeSheet;
+  $("sheetDelete").onclick = function () {
+    var d = loadDrafts(curV); d.splice(sel.edit, 1); saveDrafts(curV, d);
+    closeSheet(); renderNotes();
+  };
+  $("sheetSave").onclick = function () {
+    var comment = $("sheetText").value.trim();
+    if (!comment) { $("sheetText").focus(); return; }
+    var n = { comment: comment };
+    if (!general) {
+      n.start = Math.min(sel.a, sel.b); n.end = Math.max(sel.a, sel.b);
+      n.quote = quoteOf(n.start, n.end);
+    }
+    var d = loadDrafts(curV);
+    if (sel.edit >= 0) d[sel.edit] = n; else d.push(n);
+    d.sort(function (x, y) {
+      return (x.start == null ? 1e9 : x.start) - (y.start == null ? 1e9 : y.start);
+    });
+    saveDrafts(curV, d);
+    closeSheet(); renderNotes();
+  };
+  $("general").onclick = function () { openSheet(null, null, -1); };
+
+  $("send").onclick = function () {
+    var d = loadDrafts(curV);
+    if (!d.length) return;
+    var id = Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+    var notes = d.map(function (n) {
+      var o = { comment: n.comment };
+      if (n.start != null) { o.start = n.start; o.end = n.end; o.quote = n.quote; }
+      return o;
+    });
+    saveDrafts(curV, []);
+    xdc.sendUpdate({
+      payload: { type: "notes", id: id, v: curV, notes: notes,
+                 by: xdc.selfAddr, name: xdc.selfName },
+      summary: "v" + curV + " · " + notes.length + " note" + (notes.length > 1 ? "s" : "") + " sent"
+    }, "");
+  };
+
+  // ---- updates: rebuilt from full replay -------------------------------
+  xdc.setUpdateListener(function (u) {
+    var p = u.payload || {};
+    if (p.type === "doc" && typeof p.text === "string" && p.v) {
+      docs[p.v] = { text: p.text, title: p.title || "" };
+      if (followLatest) curV = latestV();
+    } else if (p.type === "notes" && p.id && !seen[p.id]) {
+      seen[p.id] = true;
+      sent.push({ id: p.id, v: p.v, notes: p.notes || [], name: p.name });
+    } else if (p.type === "ack" && p.id) {
+      acked[p.id] = true;
+    }
+    if (u.serial === u.max_serial) {
+      if (!sel) renderAll(); else { renderVersions(); renderNotes(); }
+    }
+  }, 0);
+})();
+</script>
+</body>
+</html>

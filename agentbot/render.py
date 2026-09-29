@@ -40,6 +40,9 @@ class ChatRenderer:
         self._turn_tool_count = 0
         self._pending_tools: dict[str, str] = {}
         self._show_bash_output = False
+        # sent msg id -> the whole reply it's part of, so /review on one chunk
+        # of a split reply gets all of it
+        self._reply_text: dict[int, str] = {}
 
     def set_inbound(self, msg_id: int):
         self._inbound_msg_id = msg_id
@@ -86,7 +89,10 @@ class ChatRenderer:
                 text = block.get("text", "").strip()
                 if text:
                     self._flush_buffer()
-                    self._send_text(text)
+                    for msg_id in self._send_text(text):
+                        self._reply_text[msg_id] = text
+                    while len(self._reply_text) > 200:
+                        del self._reply_text[next(iter(self._reply_text))]
 
             elif btype == "thinking":
                 if self.verbose:
@@ -196,16 +202,21 @@ class ChatRenderer:
             self._buffer.clear()
             self._send_text_unlocked(text)
 
-    def _send_text(self, text: str):
-        with self._lock:
-            self._send_text_unlocked(text)
+    def reply_text(self, msg_id: int) -> str | None:
+        return self._reply_text.get(msg_id)
 
-    def _send_text_unlocked(self, text: str):
+    def _send_text(self, text: str) -> list[int]:
+        with self._lock:
+            return self._send_text_unlocked(text)
+
+    def _send_text_unlocked(self, text: str) -> list[int]:
+        ids = []
         for chunk in _split_text(text, MAX_MSG_LEN):
             try:
-                self.chat.send_text(chunk)
+                ids.append(self.chat.send_text(chunk).id)
             except Exception:
                 log.exception("failed to send message")
+        return ids
 
 
 def _split_text(text: str, max_len: int) -> list[str]:

@@ -1,3 +1,4 @@
+import json
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
@@ -48,6 +49,15 @@ def init_db():
             chat_id    INTEGER PRIMARY KEY,
             shared_by  TEXT NOT NULL,
             shared_at  TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS reviews (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            msg_id      INTEGER UNIQUE NOT NULL,
+            chat_id     INTEGER NOT NULL,
+            session_id  TEXT,
+            versions    TEXT NOT NULL,
+            last_serial INTEGER NOT NULL DEFAULT 0,
+            created_at  TEXT NOT NULL
         );
         CREATE TABLE IF NOT EXISTS chat_context (
             chat_id    INTEGER PRIMARY KEY,
@@ -183,6 +193,59 @@ def set_chat_prompt(chat_id: int, prompt: str, set_by: str = None):
 def clear_chat_prompt(chat_id: int):
     conn = _connect()
     conn.execute("DELETE FROM chat_context WHERE chat_id = ?", (chat_id,))
+    conn.commit()
+    conn.close()
+
+
+def _review(row) -> dict | None:
+    if not row:
+        return None
+    r = dict(row)
+    r["versions"] = json.loads(r["versions"])
+    return r
+
+
+def add_review(msg_id: int, chat_id: int, session_id: str | None, text: str) -> int:
+    conn = _connect()
+    cur = conn.execute(
+        "INSERT INTO reviews (msg_id, chat_id, session_id, versions, created_at) "
+        "VALUES (?, ?, ?, ?, ?)",
+        (msg_id, chat_id, session_id, json.dumps([text]), now_iso()),
+    )
+    conn.commit()
+    conn.close()
+    return cur.lastrowid
+
+
+def get_review(review_id: int) -> dict | None:
+    conn = _connect()
+    row = conn.execute("SELECT * FROM reviews WHERE id = ?", (review_id,)).fetchone()
+    conn.close()
+    return _review(row)
+
+
+def get_review_by_msg(msg_id: int) -> dict | None:
+    conn = _connect()
+    row = conn.execute("SELECT * FROM reviews WHERE msg_id = ?", (msg_id,)).fetchone()
+    conn.close()
+    return _review(row)
+
+
+def add_review_version(review_id: int, text: str) -> int:
+    """Append a version; returns its 1-based number."""
+    conn = _connect()
+    row = conn.execute("SELECT versions FROM reviews WHERE id = ?", (review_id,)).fetchone()
+    versions = json.loads(row["versions"]) + [text]
+    conn.execute("UPDATE reviews SET versions = ? WHERE id = ?",
+                 (json.dumps(versions), review_id))
+    conn.commit()
+    conn.close()
+    return len(versions)
+
+
+def set_review_serial(review_id: int, serial: int):
+    conn = _connect()
+    conn.execute("UPDATE reviews SET last_serial = ? WHERE id = ?", (serial, review_id))
     conn.commit()
     conn.close()
 

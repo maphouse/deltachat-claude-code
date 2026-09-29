@@ -68,6 +68,11 @@ prompting. See [why](#why) this is the best way to interact with Claude Code.
   as audio. Uses [Piper](https://github.com/rhasspy/piper) for local neural
   text-to-speech — no API calls, runs entirely on your machine.
 
+- **Annotate responses.** Reply to any bot message with `/review` and it opens in
+  a small in-chat app (webxdc): tap words to select a phrase, comment on it, and
+  send your notes back as one turn. Claude can post a revised version into the
+  same app, so each review keeps its versions and notes in the chat.
+
 - **Auto-continue after rate limits.** Toggle `/continue-after-reset` and the
   bot will detect when Claude hits a session limit, parse the reset time from
   the message, and automatically resume the conversation one minute after the
@@ -93,6 +98,7 @@ store.py        SQLite: chat↔session bindings, per-turn usage tracking
 avatar.py       random identicon avatars for commissioned project chats
 transcribe.py   optional faster-whisper voice memo transcription
 tts.py          optional piper text-to-speech for /listen
+review.py       /review: webxdc annotation app (reviewer/) ↔ Claude turns and revisions
 provision.py    one-time setup: creates chatmail account, avatar, systemd unit
 ```
 
@@ -226,9 +232,12 @@ else is a guest, and the bot only answers a guest in a chat an owner has shared:
 - Guests can't share chats themselves, so adding the bot to a group without an owner
   gets them nothing. Adding an owner to their own group doesn't work either — an owner
   has to run `/share` there.
-- Guests can use `/stop`, `/clear`, `/model`, `/effort`, `/verbose`, `/usage`, `/help` and
-  `/listen`. Every other bot command is owner-only. Claude Code's own slash commands
+- Guests can use `/stop`, `/clear`, `/model`, `/effort`, `/verbose`, `/usage`, `/help`,
+  `/listen` and `/review`. Every other bot command is owner-only. Claude Code's own slash commands
   (e.g. `/compact`) pass through as usual.
+- `/review` notes arrive as webxdc updates, which don't carry a sender, so the bot
+  only accepts them in chats where every member could use the bot anyway: all
+  members are owners, or the chat is shared and still has an owner in it.
 - The bot ignores anyone it won't serve without replying, so it doesn't spam group
   chats that haven't been shared.
 
@@ -265,6 +274,7 @@ These commands control the Claude Code session from inside a persistent chat.
 | `/usage` | Session, today, and weekly stats (turns, tokens, context fill) |
 | `/send <path>` | Send a file (image, PDF, etc.) from the server to this chat |
 | `/listen` | Reply to a message to hear it as audio (TTS) |
+| `/review` | Reply to a message to annotate it word by word in an in-chat app |
 | `/help` | All bot commands plus Claude Code's own command list |
 
 

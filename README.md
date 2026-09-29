@@ -50,8 +50,7 @@ prompting. See [why](#why) this is the best way to interact with Claude Code.
 - **Vibe code with friends.** The bot is a Delta Chat contact like any other, and a commissioned group chat is just a group chat. Add your other contacts to a chat with the agent and work on a project together (see [Sharing chats with guests](#sharing-chats-with-guests)).
 
 - **Session portability.** A session started from your phone can be resumed from
-  a terminal (`claude --resume <id>`), and vice versa. The underlying `.jsonl`
-  session file is the same one Claude Code uses natively. You're not locked into
+  a terminal (`claude --resume <session-id>`), and vice versa. You're not locked into
   the chat interface; it's just another way in.
 
 - **Voice memos.** With optional
@@ -59,25 +58,18 @@ prompting. See [why](#why) this is the best way to interact with Claude Code.
   voice memos and they'll be transcribed before reaching Claude. The bot echoes
   the transcription back so you can verify what Claude received.
 
-- **Screenshots and file delivery.** Send images for Claude to analyze; use
+- **Send and receive files via chat.** Send images for Claude to analyze; use
   `/send <path>` to deliver generated files (images, PDFs, build artifacts)
-  back to your chat. Attachments are saved to `.agentbot-inbox/` in the
+  from its directory back to your chat. Attachments you send it are saved to `.agentbot-inbox/` in the
   session's working directory.
 
-- **Listen to responses.** Reply to any bot message with `/listen` to hear it
-  as audio. Uses [Piper](https://github.com/rhasspy/piper) for local neural
-  text-to-speech — no API calls, runs entirely on your machine.
-
-- **Annotate responses.** Reply to any bot message with `/annotate` and it opens in
-  a small in-chat app (webxdc): tap words to select a phrase, comment on it, and
-  send your notes back as one turn. Claude can post a revised version into the
-  same app, so each review keeps its versions and notes in the chat.
+- **Annotate responses for precision review.** Reply to any message with `/annotate` and that message opens inside a [small, secure in-chat artifact](https://webxdc.org/) you can comment on: tap words to select a phrase, comment on it, and
+  send your notes back to the agent. The agent can then respond with a revised version within this in-chat app.
 
 - **Auto-continue after rate limits.** Toggle `/continue-after-reset` and the
   bot will detect when Claude hits a session limit, parse the reset time from
   the message, and automatically resume the conversation one minute after the
   limit lifts — no need to watch the clock or come back to re-prompt.
-
 
 ## Screenshots
 
@@ -194,14 +186,13 @@ slash commands work.
 
 Use `/commission <name> [dir]` to create a dedicated group chat for a project.
 Each commissioned chat gets its own session, working directory, and randomly
-generated identicon avatar. This is how you keep multiple long-running projects
-separate. Commissioned chats start out shared (see below), and everyone in the chat
+generated identicon avatar. Commissioned chats start out shared with all chat members (see below), and everyone in the chat
 you ran `/commission` from is added to the new group.
 
 Several chats can point at the same directory, so a chat can also carry its own frame:
 
 ```
-/commission nut-bugs ~/nut-game --model claude-opus-5-5 --system-prompt 'Triage playtester bug reports. Reproduce before fixing. Don't refactor.'
+/commission app-bugs ~/my-app --model claude-opus-5-5 --system-prompt 'Triage playtester bug reports. Reproduce before fixing. Don't refactor.'
 ```
 
 - **Chat prompt** (`--system-prompt`) is appended to Claude Code's system prompt, on
@@ -209,12 +200,12 @@ Several chats can point at the same directory, so a chat can also carry its own 
   `/clear` and `/new`. Change it later with `/prompt`. Quote it with straight or curly
   quotes; apostrophes inside are fine.
 - **Model** (`--model`) overrides the directory's `.claude/settings*.json` for this chat
-  only; the bot never writes to the directory. Change it later with `/model`.
+  only; Change it later with `/model`.
 
-Every session also gets the **preamble**, an agentbot-wide system prompt telling Claude
+Every session also gets a basic **preamble**, an agentbot-wide system prompt telling Claude
 it's talking over Delta Chat (concise replies, where attachments land). It's the
-`preamble` key in `config.toml`; the chat's name and sharing status and then its chat
-prompt are added after it. `/prompt` with no arguments shows the full appended text.
+`preamble` key in `config.toml`; the chat's name, sharing status and chat
+prompt are added after it. `/prompt` with no arguments combines all layers, displaying the bot's entire prompt.
 
 ### Sharing chats with guests
 

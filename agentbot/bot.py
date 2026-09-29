@@ -2,6 +2,7 @@ import logging
 import os
 import re
 import shutil
+import sqlite3
 import threading
 import tomllib
 import uuid
@@ -110,7 +111,82 @@ class AgentBot:
         # cwd's .claude/settings*.json decide; None is how that travels
         cfg["default_model"] = cfg.get("default_model") or None
         cfg.setdefault("preamble", DEFAULT_PREAMBLE)
+        cfg.setdefault("admin_fingerprints", [])
+        cfg.setdefault("admin_addresses", [])
         return cfg
+
+    def _resolve_admin_ids(self):
+        """Build the set of admin contact IDs from config. Called once after
+        the account is available.
+
+        Multi-transport means a single person can appear with different relay
+        addresses (and thus different DC contact IDs). We collect admin
+        fingerprints from config, then find every contact in the DB that
+        shares one of those fingerprints — covering all relay addresses."""
+        admin_fps = set(self.config["admin_fingerprints"])
+        self._admin_contact_ids: set[int] = set()
+        self._admin_fingerprints: set[str] = set(admin_fps)
+
+        for addr in self.config["admin_addresses"]:
+            try:
+                cid = self.account._rpc.create_contact(self.account.id, addr, "")
+                if cid:
+                    self._admin_contact_ids.add(cid)
+            except Exception:
+                log.warning("could not resolve admin address %s", addr, exc_info=True)
+
+        # Find all contacts that share an admin fingerprint (covers relays)
+        if admin_fps:
+            try:
+                db_path = Path(ACCOUNTS_DIR).glob("*/dc.db")
+                for db in db_path:
+                    conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
+                    c = conn.cursor()
+                    placeholders = ",".join("?" * len(admin_fps))
+                    c.execute(
+                        f"SELECT id, addr, fingerprint FROM contacts "
+                        f"WHERE fingerprint IN ({placeholders})",
+                        list(admin_fps),
+                    )
+                    for cid, addr, fp in c.fetchall():
+                        self._admin_contact_ids.add(cid)
+                        log.info("admin fingerprint %s...%s -> contact %d (%s)",
+                                 fp[:8], fp[-8:], cid, addr)
+                    conn.close()
+                    break
+            except Exception:
+                log.warning("fingerprint DB lookup failed", exc_info=True)
+
+        log.info("admin contact IDs: %s", self._admin_contact_ids)
+
+    def _is_owner(self, contact_snapshot) -> bool:
+        """Check whether a contact is an admin — by contact ID first (covers
+        relay addresses resolved at startup), then address fallback."""
+        contact = contact_snapshot.get("contact")
+        if contact and contact.id in self._admin_contact_ids:
+            return True
+        addr = contact_snapshot.get("address", "")
+        if addr in self.config["admin_addresses"]:
+            return True
+        # New relay contact not seen at startup — check its fingerprint live
+        if contact and self._admin_fingerprints:
+            try:
+                info = contact.get_encryption_info()
+                for fp in self._admin_fingerprints:
+                    if fp.lower() in info.lower():
+                        self._admin_contact_ids.add(contact.id)
+                        log.info("late-resolved admin: contact %d (%s) via fingerprint",
+                                 contact.id, addr)
+                        return True
+            except Exception:
+                pass
+        return False
+
+    def _contact_is_owner(self, contact) -> bool:
+        """Convenience: takes a Contact object instead of a snapshot."""
+        if contact.id in self._admin_contact_ids:
+            return True
+        return self._is_owner(contact.get_snapshot())
 
     def get_renderer(self, chat_id: int) -> ChatRenderer | None:
         return self._renderers.get(chat_id)
@@ -329,20 +405,20 @@ class AgentBot:
         only while at least one owner is still a member of it."""
         if not store.is_shared(chat.id):
             return False
-        owners = set(self.config["admin_addresses"])
-        return any(c.get_snapshot().address in owners for c in chat.get_contacts())
+        return any(self._contact_is_owner(c) for c in chat.get_contacts())
 
     def handle_message(self, event):
         snapshot = event.message_snapshot
-        sender = snapshot.sender.get_snapshot().address
+        sender_snapshot = snapshot.sender.get_snapshot()
+        sender = sender_snapshot.address
         text = (snapshot.text or "").strip()
         chat = snapshot.chat
         chat_id = chat.id
 
-        owner = sender in self.config["admin_addresses"]
+        owner = self._is_owner(sender_snapshot)
         if not owner and not self._guest_allowed(chat):
-            # Stay silent: replying would spam groups the bot wasn't shared into.
-            log.warning("ignoring %s in chat %d (not an owner, chat not shared)", sender, chat_id)
+            log.warning("ignoring %s in chat %d (not an owner, chat not shared)",
+                        sender, chat_id)
             return
 
         if not text and not snapshot.file:
@@ -431,9 +507,14 @@ class AgentBot:
         member an owner, or a shared chat still holding an owner."""
         if store.is_shared(chat.id):
             return self._guest_allowed(chat)
-        owners = set(self.config["admin_addresses"])
         me = self.account.get_config("addr")
-        return all(c.get_snapshot().address in owners | {me} for c in chat.get_contacts())
+        for c in chat.get_contacts():
+            snap = c.get_snapshot()
+            if snap.address == me:
+                continue
+            if not self._is_owner(snap):
+                return False
+        return True
 
     def handle_webxdc_update(self, event):
         rv = store.get_review_by_msg(event.msg_id)
@@ -510,6 +591,7 @@ class AgentBot:
             account = accounts[0]
             log.info("running as %s", account.get_config("addr"))
             self.account = account
+            self._resolve_admin_ids()
             client = Client(
                 account,
                 hooks=[(self.handle_message, events.NewMessage(is_info=False)),

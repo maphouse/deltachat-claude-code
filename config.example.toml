@@ -1,5 +1,11 @@
-# Delta Chat addresses allowed to use the bot. This is the only access
-# control — the bot runs with bypassPermissions, so this list is load-bearing.
+# Cryptographic fingerprints of admin contacts. Stable across relays —
+# preferred over addresses for multi-transport Delta Chat setups.
+# Find a contact's fingerprint in DC: contact info → Encryption.
+admin_fingerprints = ["ABCD1234..."]
+
+# Fallback: Delta Chat addresses allowed to use the bot. Checked only when the
+# sender's fingerprint isn't populated yet in DC's contact database. Once all
+# your contacts have fingerprints, you can remove this.
 admin_addresses = ["you@example.com"]
 
 # Filesystem roots the bot is allowed to operate in.

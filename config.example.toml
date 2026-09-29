@@ -1,12 +1,9 @@
-# Cryptographic fingerprints of admin contacts. Stable across relays —
-# preferred over addresses for multi-transport Delta Chat setups.
-# Find a contact's fingerprint in DC: contact info → Encryption.
-admin_fingerprints = ["ABCD1234..."]
-
-# Fallback: Delta Chat addresses allowed to use the bot. Checked only when the
-# sender's fingerprint isn't populated yet in DC's contact database. Once all
-# your contacts have fingerprints, you can remove this.
-admin_addresses = ["you@example.com"]
+# Owners: OpenPGP fingerprints of the Delta Chat profiles allowed to use the
+# bot. A fingerprint names your key, not an address, so it keeps working
+# whichever relays your profile uses. Find yours in Delta Chat: open your chat
+# with the bot → the contact → Encryption (the fingerprint listed under your
+# name, without the bot's own). Spaces are ignored.
+admin_fingerprints = ["ABCD 1234 ..."]
 
 # Filesystem roots the bot is allowed to operate in.
 allowed_roots = ["/home/you"]
@@ -19,7 +16,7 @@ default_cwd = "/home/you"
 default_model = ""
 
 # Permission mode for Claude Code sessions. "bypassPermissions" skips all
-# confirmation prompts — only safe because admin_addresses (and /share) gate access.
+# confirmation prompts — only safe because admin_fingerprints (and /share) gate access.
 default_permission_mode = "bypassPermissions"
 
 # Max concurrent Claude Code subprocesses. Oldest idle session is evicted

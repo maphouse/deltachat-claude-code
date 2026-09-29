@@ -1,8 +1,9 @@
+import base64
+import hashlib
 import logging
 import os
 import re
 import shutil
-import sqlite3
 import threading
 import tomllib
 import uuid
@@ -10,6 +11,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from deltachat_rpc_client import Client, DeltaChat, Rpc, events
+from deltachat_rpc_client.const import SpecialContactId
 from deltachat_rpc_client.events import EventType
 
 from . import annotate, commands, store
@@ -59,6 +61,30 @@ def _find_rpc_server() -> str:
 
 RPC_SERVER_PATH = _find_rpc_server()
 
+
+def _key_fingerprint(contact) -> str | None:
+    """OpenPGP v4 fingerprint of a contact's public key, or None for an
+    address-only contact. The RPC API exposes the key (in the vCard) but not
+    its fingerprint, so hash the primary key packet: SHA-1 over 0x99, a
+    two-byte length, and the packet body (RFC 4880 §12.2)."""
+    vcard = contact.make_vcard().replace("\r\n ", "")  # unfold lines
+    m = re.search(r"^KEY:data:application/pgp-keys;base64\\?,(\S+)", vcard, re.M)
+    if not m:
+        return None
+    key = base64.b64decode(m.group(1))
+    if not key[0] & 0x40:  # rPGP writes new-format packet headers only
+        return None
+    if key[1] < 192:
+        n, off = key[1], 2
+    elif key[1] < 224:
+        n, off = ((key[1] - 192) << 8) + key[2] + 192, 3
+    else:
+        n, off = int.from_bytes(key[2:6]), 6
+    body = key[off:off + n]
+    if body[:1] != b"\x04":
+        return None
+    return hashlib.sha1(b"\x99" + n.to_bytes(2) + body).hexdigest().upper()
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
@@ -103,6 +129,8 @@ class AgentBot:
         self._rate_limited_chats: set[int] = set()
         # chat -> review whose notes Claude saw last; a bare <revision> goes there
         self._active_review: dict[int, int] = {}
+        # contact id -> key fingerprint; fixed for a contact's lifetime
+        self._fingerprints: dict[int, str | None] = {}
 
     def _load_config(self) -> dict:
         with open(BOT_DIR / "config.toml", "rb") as f:
@@ -111,82 +139,22 @@ class AgentBot:
         # cwd's .claude/settings*.json decide; None is how that travels
         cfg["default_model"] = cfg.get("default_model") or None
         cfg.setdefault("preamble", DEFAULT_PREAMBLE)
-        cfg.setdefault("admin_fingerprints", [])
-        cfg.setdefault("admin_addresses", [])
+        cfg["admin_fingerprints"] = {fp.replace(" ", "").upper()
+                                     for fp in cfg.get("admin_fingerprints", [])}
+        if not cfg["admin_fingerprints"]:
+            log.error("no admin_fingerprints in config.toml — nobody can use the bot")
+        if "admin_addresses" in cfg:
+            log.warning("admin_addresses is no longer used; owners are admin_fingerprints only")
         return cfg
 
-    def _resolve_admin_ids(self):
-        """Build the set of admin contact IDs from config. Called once after
-        the account is available.
-
-        Multi-transport means a single person can appear with different relay
-        addresses (and thus different DC contact IDs). We collect admin
-        fingerprints from config, then find every contact in the DB that
-        shares one of those fingerprints — covering all relay addresses."""
-        admin_fps = set(self.config["admin_fingerprints"])
-        self._admin_contact_ids: set[int] = set()
-        self._admin_fingerprints: set[str] = set(admin_fps)
-
-        for addr in self.config["admin_addresses"]:
-            try:
-                cid = self.account._rpc.create_contact(self.account.id, addr, "")
-                if cid:
-                    self._admin_contact_ids.add(cid)
-            except Exception:
-                log.warning("could not resolve admin address %s", addr, exc_info=True)
-
-        # Find all contacts that share an admin fingerprint (covers relays)
-        if admin_fps:
-            try:
-                db_path = Path(ACCOUNTS_DIR).glob("*/dc.db")
-                for db in db_path:
-                    conn = sqlite3.connect(f"file:{db}?mode=ro", uri=True)
-                    c = conn.cursor()
-                    placeholders = ",".join("?" * len(admin_fps))
-                    c.execute(
-                        f"SELECT id, addr, fingerprint FROM contacts "
-                        f"WHERE fingerprint IN ({placeholders})",
-                        list(admin_fps),
-                    )
-                    for cid, addr, fp in c.fetchall():
-                        self._admin_contact_ids.add(cid)
-                        log.info("admin fingerprint %s...%s -> contact %d (%s)",
-                                 fp[:8], fp[-8:], cid, addr)
-                    conn.close()
-                    break
-            except Exception:
-                log.warning("fingerprint DB lookup failed", exc_info=True)
-
-        log.info("admin contact IDs: %s", self._admin_contact_ids)
-
-    def _is_owner(self, contact_snapshot) -> bool:
-        """Check whether a contact is an admin — by contact ID first (covers
-        relay addresses resolved at startup), then address fallback."""
-        contact = contact_snapshot.get("contact")
-        if contact and contact.id in self._admin_contact_ids:
-            return True
-        addr = contact_snapshot.get("address", "")
-        if addr in self.config["admin_addresses"]:
-            return True
-        # New relay contact not seen at startup — check its fingerprint live
-        if contact and self._admin_fingerprints:
-            try:
-                info = contact.get_encryption_info()
-                for fp in self._admin_fingerprints:
-                    if fp.lower() in info.lower():
-                        self._admin_contact_ids.add(contact.id)
-                        log.info("late-resolved admin: contact %d (%s) via fingerprint",
-                                 contact.id, addr)
-                        return True
-            except Exception:
-                pass
-        return False
-
-    def _contact_is_owner(self, contact) -> bool:
-        """Convenience: takes a Contact object instead of a snapshot."""
-        if contact.id in self._admin_contact_ids:
-            return True
-        return self._is_owner(contact.get_snapshot())
+    def _is_owner(self, contact) -> bool:
+        """An owner is a key-contact whose key fingerprint is in
+        admin_fingerprints. Delta Chat keys contacts by fingerprint, so one
+        person is one contact whichever relays they send through; address-only
+        contacts (no key) never qualify."""
+        if contact.id not in self._fingerprints:
+            self._fingerprints[contact.id] = _key_fingerprint(contact)
+        return self._fingerprints[contact.id] in self.config["admin_fingerprints"]
 
     def get_renderer(self, chat_id: int) -> ChatRenderer | None:
         return self._renderers.get(chat_id)
@@ -405,17 +373,16 @@ class AgentBot:
         only while at least one owner is still a member of it."""
         if not store.is_shared(chat.id):
             return False
-        return any(self._contact_is_owner(c) for c in chat.get_contacts())
+        return any(self._is_owner(c) for c in chat.get_contacts())
 
     def handle_message(self, event):
         snapshot = event.message_snapshot
-        sender_snapshot = snapshot.sender.get_snapshot()
-        sender = sender_snapshot.address
+        sender = snapshot.sender.get_snapshot().address
         text = (snapshot.text or "").strip()
         chat = snapshot.chat
         chat_id = chat.id
 
-        owner = self._is_owner(sender_snapshot)
+        owner = self._is_owner(snapshot.sender)
         if not owner and not self._guest_allowed(chat):
             log.warning("ignoring %s in chat %d (not an owner, chat not shared)",
                         sender, chat_id)
@@ -507,14 +474,8 @@ class AgentBot:
         member an owner, or a shared chat still holding an owner."""
         if store.is_shared(chat.id):
             return self._guest_allowed(chat)
-        me = self.account.get_config("addr")
-        for c in chat.get_contacts():
-            snap = c.get_snapshot()
-            if snap.address == me:
-                continue
-            if not self._is_owner(snap):
-                return False
-        return True
+        return all(c.id == SpecialContactId.SELF or self._is_owner(c)
+                   for c in chat.get_contacts())
 
     def handle_webxdc_update(self, event):
         rv = store.get_review_by_msg(event.msg_id)
@@ -591,7 +552,6 @@ class AgentBot:
             account = accounts[0]
             log.info("running as %s", account.get_config("addr"))
             self.account = account
-            self._resolve_admin_ids()
             client = Client(
                 account,
                 hooks=[(self.handle_message, events.NewMessage(is_info=False)),

@@ -156,7 +156,7 @@ mkdir my-bot && cd my-bot
 cp /path/to/config.example.toml config.toml
 # Or download it:
 # curl -O https://raw.githubusercontent.com/maphouse/deltachat-claude-code/main/config.example.toml
-# Edit config.toml: set admin_addresses, allowed_roots, default_cwd
+# Edit config.toml: set admin_fingerprints, allowed_roots, default_cwd
 
 # Provision (creates chatmail account, avatar, systemd unit)
 deltachat-claude-code-provision
@@ -209,7 +209,7 @@ prompt are added after it. `/prompt` with no arguments combines all layers, disp
 
 ### Sharing chats with guests
 
-Owners are the addresses in `admin_addresses`. They can use the bot in any chat. Anyone
+Owners are the profiles whose key fingerprints are in `admin_fingerprints`. They can use the bot in any chat. Anyone
 else is a guest, and the bot only answers a guest in a chat an owner has shared:
 
 | Command | What it does |
@@ -271,12 +271,13 @@ These commands control the Claude Code session from inside a persistent chat.
 
 ## Security
 
-Access control has two layers: the `admin_addresses` list in `config.toml` (owners),
+Access control has two layers: the `admin_fingerprints` list in `config.toml` (owners),
 and the chats owners have shared with `/share` or `/commission`. The bot runs with
 `bypassPermissions`, meaning Claude Code will execute any tool without confirmation.
 This is deliberate — confirmation prompts can't work over chat — but it means both
-layers are load-bearing. Only add addresses you trust with full shell access to the
-machine.
+layers are load-bearing. Only add fingerprints you trust with full shell access to the
+machine. Owners are matched by key, never by address: a relay can't impersonate one, and
+an owner who adds or switches relays stays an owner.
 
 **Guests in a shared chat have that same shell access.** Limiting guests to certain
 commands only limits the bot's own commands. Claude itself still runs as your Unix user,

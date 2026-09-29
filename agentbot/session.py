@@ -182,6 +182,15 @@ class Session:
             except Exception:
                 log.exception("on_model handler error")
 
+    def current_model(self) -> str | None:
+        """Exact model id in use. Before the first reply, ask the CLI: its
+        get_context_usage reports the model after settings files are applied."""
+        if not self.resolved_model:
+            ok, resp, _ = control_ok(self.control("get_context_usage"))
+            if ok:
+                self._note_model(resp.get("model"))
+        return self.resolved_model
+
     def model_catalog(self) -> list[dict]:
         """Claude Code's model picker entries: value (alias), resolvedModel
         (exact id), displayName. Only the initialize response carries these;

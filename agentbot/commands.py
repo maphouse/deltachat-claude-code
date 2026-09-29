@@ -157,15 +157,6 @@ def _cmd_stop(args, chat_id, chat, bot):
 CLEAR_MODEL = {"default", "auto", "settings", "-"}
 
 
-def _current_model(session, binding, bot):
-    """What this chat is actually running on, or None if settings files decide."""
-    if session and session.resolved_model:
-        return session.resolved_model
-    if session and session.model:
-        return session.model
-    return (binding.get("model") if binding else None) or bot.config["default_model"]
-
-
 def _catalog_entry(catalog, model):
     """The picker entry for an alias or exact id, or None."""
     for m in catalog:
@@ -188,17 +179,21 @@ def _describe_model(catalog, model):
 
 def _cmd_model(args, chat_id, chat, bot):
     session = bot.session_manager.get(chat_id)
+    if not (session and session.alive):
+        # only a running session can say which model it resolves to
+        session = bot._ensure_session(chat_id, chat)
     binding = store.get_binding(chat_id)
     live = session and session.alive
     catalog = session.model_catalog() if live else []
 
     if not args:
-        current = _current_model(session, binding, bot)
-        shown = _describe_model(catalog, current) if current else None
+        current = (session.current_model() if live else None) or \
+            (binding.get("model") if binding else None)
+        shown = _describe_model(catalog, current) if current else "unknown (session not running)"
         if binding and binding.get("model"):
-            shown = f"{shown} (chat override)"
+            shown += f" — chat override: {binding['model']}"
         else:
-            shown = f"{shown} (from the cwd's settings files)" if shown else "from the cwd's settings files"
+            shown += " — no chat override (settings files / Claude Code default)"
         cur = _catalog_entry(catalog, current) if current else None
         lines = []
         for m in catalog:

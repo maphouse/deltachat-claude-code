@@ -56,4 +56,4 @@ deltachat-claude-code-provision = "agentbot.provision:main"
 include = ["agentbot*"]
 
 [tool.setuptools.package-data]
-agentbot = ["reviewer/*"]
+agentbot = ["annotator/*"]

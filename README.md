@@ -98,7 +98,7 @@ store.py        SQLite: chat↔session bindings, per-turn usage tracking
 avatar.py       random identicon avatars for commissioned project chats
 transcribe.py   optional faster-whisper voice memo transcription
 tts.py          optional piper text-to-speech for /listen
-review.py       /annotate: webxdc annotation app (reviewer/) ↔ Claude turns and revisions
+annotate.py     /annotate: webxdc annotation app (annotator/) ↔ Claude turns and revisions
 provision.py    one-time setup: creates chatmail account, avatar, systemd unit
 ```
 

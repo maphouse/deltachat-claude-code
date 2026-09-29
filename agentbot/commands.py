@@ -546,10 +546,10 @@ def _cmd_annotate(args, chat_id, chat, bot, quoted=None, quoted_id=None, **_kw):
     text = bot.quoted_text(chat_id, quoted_id, quoted)
     if not text:
         return "reply to a message with /annotate to annotate it"
-    from . import review
+    from . import annotate
     binding = store.get_binding(chat_id)
     try:
-        review.start(chat, text, binding["session_id"] if binding else None)
+        annotate.start(chat, text, binding["session_id"] if binding else None)
     except Exception as e:
         log.exception("annotate failed")
         return f"couldn't start annotation: {e}"

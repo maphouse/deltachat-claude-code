@@ -18,7 +18,7 @@ from . import store
 
 log = logging.getLogger("agentbot.review")
 
-APP_DIR = Path(__file__).parent / "reviewer"
+APP_DIR = Path(__file__).parent / "annotator"
 
 REVISION_RE = re.compile(
     r"<revision(?:\s+review=[\"']?#?(\d+)[\"']?)?\s*>\s*([\s\S]*?)\s*</revision>")
@@ -26,7 +26,7 @@ REVISION_RE = re.compile(
 
 def build_xdc() -> Path:
     """Zip the app directory into a fresh .xdc; DC copies it into its blobdir."""
-    fd, path = tempfile.mkstemp(suffix=".xdc", prefix="review-")
+    fd, path = tempfile.mkstemp(suffix=".xdc", prefix="annotate-")
     with zipfile.ZipFile(open(fd, "wb"), "w", zipfile.ZIP_DEFLATED) as z:
         for f in sorted(APP_DIR.iterdir()):
             if f.is_file():
@@ -52,7 +52,7 @@ def start(chat, text: str, session_id: str | None) -> int:
     """Send a review app for `text`; returns the review number."""
     xdc = build_xdc()
     try:
-        msg = chat.send_message(file=str(xdc), filename="review.xdc")
+        msg = chat.send_message(file=str(xdc), filename="annotate.xdc")
     finally:
         xdc.unlink(missing_ok=True)
     review_id = store.add_review(msg.id, chat.id, session_id, text)

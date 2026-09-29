@@ -11,7 +11,7 @@ from pathlib import Path
 from deltachat_rpc_client import Client, DeltaChat, Rpc, events
 from deltachat_rpc_client.events import EventType
 
-from . import commands, review, store
+from . import annotate, commands, store
 
 # The RPC server may emit event types newer than the Python client knows about
 # (e.g. IncomingWebxdcNotify). Patch the event loop to skip unknown types
@@ -207,13 +207,13 @@ class AgentBot:
         for block in event.get("message", {}).get("content", []):
             if block.get("type") != "text" or "<revision" not in block.get("text", ""):
                 continue
-            text, found = review.extract_revisions(block["text"],
+            text, found = annotate.extract_revisions(block["text"],
                                                    self._active_review.get(chat_id))
             for i, (rid, revised) in enumerate(found):
                 rv = store.get_review(rid)
                 if rv and rv["chat_id"] == chat_id:
                     try:
-                        v = review.post_revision(self.account, rv, revised)
+                        v = annotate.post_revision(self.account, rv, revised)
                         note = f"📝 posted v{v} to annotation #{rid}"
                     except Exception:
                         log.exception("posting revision to review %d failed", rid)
@@ -439,7 +439,7 @@ class AgentBot:
         rv = store.get_review_by_msg(event.msg_id)
         if not rv:
             return
-        batches = review.collect_notes(self.account, rv)
+        batches = annotate.collect_notes(self.account, rv)
         if not batches:
             return
         chat = self.account.get_chat_by_id(rv["chat_id"])
@@ -455,9 +455,9 @@ class AgentBot:
             renderer.set_inbound(rv["msg_id"])
             renderer.react_receipt()
             self._active_review[chat.id] = rv["id"]
-            text = review.format_notes(rv, batch, include_text=not same_session)
+            text = annotate.format_notes(rv, batch, include_text=not same_session)
             if self._deliver(chat.id, chat, text):
-                review.ack(self.account, rv, batch.get("id", ""))
+                annotate.ack(self.account, rv, batch.get("id", ""))
 
     def _handle_attachment(self, chat_id: int, snapshot, text: str) -> str:
         binding = store.get_binding(chat_id)

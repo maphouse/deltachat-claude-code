@@ -45,7 +45,7 @@ prompting. See [why](#why) this is the best way to interact with Claude Code.
   of output.
 
 - **Project-based chats.** Use `/commission <name> <directory>` to create a dedicated group
-  chat for a project in a given folder. Each commissioned chat gets its own session and randomly generated identicon avatar, and can carry its own system prompt and model on top of the folder's `CLAUDE.md` and settings.
+  chat for a project in a given folder. Each commissioned chat gets its own session and identicon avatar (random pattern, color shared by chats in the same folder; `/avatar` regenerates it), and can carry its own system prompt and model on top of the folder's `CLAUDE.md` and settings.
 
 - **Vibe code with friends.** The bot is a Delta Chat contact like any other, and a commissioned group chat is just a group chat. Add your other contacts to a chat with the agent and work on a project together (see [Sharing chats with guests](#sharing-chats-with-guests)).
 

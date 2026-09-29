@@ -361,6 +361,7 @@ def _cmd_help(args, chat_id, chat, bot):
         "  /annotate          — reply to a message to annotate it in an app",
         "  /commission <name> [dir] [--model m] [--system-prompt 'text']",
         "                     — new shared chat for a project",
+        "  /avatar            — regenerate this chat's avatar (color = cwd's)",
         "  /help              — this message",
         "",
         "sharing:",
@@ -449,7 +450,7 @@ def _cmd_commission(args, chat_id, chat, bot, sender=None, **_kw):
         try:
             avatar_path = Path(bot.bot_dir) / "avatars" / f"{name}.png"
             avatar_path.parent.mkdir(exist_ok=True)
-            make_avatar(avatar_path, color=color_for_path(cwd))
+            make_avatar(avatar_path, color=_dir_color(cwd))
             group.set_image(str(avatar_path))
         except Exception:
             log.warning("avatar for group %r failed", name, exc_info=True)
@@ -474,6 +475,30 @@ def _cmd_commission(args, chat_id, chat, bot, sender=None, **_kw):
     except Exception as e:
         log.exception("commission failed")
         return f"commission failed: {e}"
+
+
+def _dir_color(cwd: str) -> tuple:
+    """This directory's avatar color. Remembered in settings on first use, so
+    it can be pinned to match chats made before colors were keyed by cwd."""
+    key = "avatar_color:" + os.path.realpath(os.path.expanduser(cwd))
+    saved = store.get_setting(key)
+    if saved:
+        return tuple(bytes.fromhex(saved)) + (255,)
+    color = color_for_path(cwd)
+    store.set_setting(key, bytes(color[:3]).hex())
+    return color
+
+
+def _cmd_avatar(args, chat_id, chat, bot):
+    binding = store.get_binding(chat_id)
+    if not binding:
+        return "no session bound to this chat"
+    name = chat.get_basic_snapshot().name
+    avatar_path = Path(bot.bot_dir) / "avatars" / f"{name}.png"
+    avatar_path.parent.mkdir(exist_ok=True)
+    make_avatar(avatar_path, color=_dir_color(binding["cwd"]))
+    chat.set_image(str(avatar_path))
+    return f"new avatar for {binding['cwd']}"
 
 
 def _cmd_prompt(args, chat_id, chat, bot, sender=None, **_kw):
@@ -629,6 +654,7 @@ HANDLERS = {
     "cost": _cmd_usage,
     "help": _cmd_help,
     "commission": _cmd_commission,
+    "avatar": _cmd_avatar,
     "prompt": _cmd_prompt,
     "share": _cmd_share,
     "unshare": _cmd_unshare,

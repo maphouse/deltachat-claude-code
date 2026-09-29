@@ -5,8 +5,10 @@ import re
 import uuid
 from pathlib import Path
 
+from PIL import Image
+
 from . import store
-from .avatar import color_for_path, make_avatar
+from .avatar import BLACK, WHITE, color_for_path, make_avatar
 from .session import control_ok
 
 log = logging.getLogger("agentbot.commands")
@@ -31,7 +33,7 @@ _CTX_COMMANDS = {"listen", "annotate", "commission", "share", "prompt"}
 # Commands a guest (non-owner in a shared chat) may run. Everything else in
 # HANDLERS is owner-only; unknown /commands still pass through to Claude Code.
 GUEST_COMMANDS = {"stop", "clear", "model", "effort", "verbose", "usage", "cost",
-                  "help", "listen", "annotate"}
+                  "help", "listen", "annotate", "avatar"}
 
 
 def handle(cmd: str, args: str, chat_id: int, chat, bot, owner: bool = True,
@@ -361,7 +363,7 @@ def _cmd_help(args, chat_id, chat, bot):
         "  /annotate          — reply to a message to annotate it in an app",
         "  /commission <name> [dir] [--model m] [--system-prompt 'text']",
         "                     — new shared chat for a project",
-        "  /avatar            — regenerate this chat's avatar (color = cwd's)",
+        "  /avatar            — new random avatar shape (color = this dir's)",
         "  /help              — this message",
         "",
         "sharing:",
@@ -369,7 +371,7 @@ def _cmd_help(args, chat_id, chat, bot):
         "  /unshare           — back to owners only",
         "",
         "guests (non-owners in a shared chat) can use /stop /clear /model",
-        "/effort /verbose /usage /help /listen; the rest are owner-only.",
+        "/effort /verbose /usage /help /listen /avatar; the rest are owner-only.",
         "any other /command is passed through to Claude Code.",
     ]
     session = bot.session_manager.get(chat_id)
@@ -450,7 +452,7 @@ def _cmd_commission(args, chat_id, chat, bot, sender=None, **_kw):
         try:
             avatar_path = Path(bot.bot_dir) / "avatars" / f"{name}.png"
             avatar_path.parent.mkdir(exist_ok=True)
-            make_avatar(avatar_path, color=_dir_color(cwd))
+            make_avatar(avatar_path, color=_dir_color(cwd, bot))
             group.set_image(str(avatar_path))
         except Exception:
             log.warning("avatar for group %r failed", name, exc_info=True)
@@ -477,16 +479,35 @@ def _cmd_commission(args, chat_id, chat, bot, sender=None, **_kw):
         return f"commission failed: {e}"
 
 
-def _dir_color(cwd: str) -> tuple:
-    """This directory's avatar color. Remembered in settings on first use, so
-    it can be pinned to match chats made before colors were keyed by cwd."""
-    key = "avatar_color:" + os.path.realpath(os.path.expanduser(cwd))
+def _dir_color(cwd: str, bot) -> tuple:
+    """This directory's avatar color, so chats sharing a cwd share a color.
+    Remembered in settings; first use adopts the color of an existing chat
+    in the same directory, falling back to a hash of the path."""
+    real = os.path.realpath(os.path.expanduser(cwd))
+    key = "avatar_color:" + real
     saved = store.get_setting(key)
     if saved:
         return tuple(bytes.fromhex(saved)) + (255,)
-    color = color_for_path(cwd)
+    color = _existing_color(real, bot) or color_for_path(cwd)
     store.set_setting(key, bytes(color[:3]).hex())
     return color
+
+
+def _existing_color(real_cwd: str, bot) -> tuple | None:
+    """Background color of the avatar of some chat already bound to this dir."""
+    for b in store.all_bindings():
+        if os.path.realpath(os.path.expanduser(b["cwd"])) != real_cwd:
+            continue
+        try:
+            name = bot.account.get_chat_by_id(b["chat_id"]).get_basic_snapshot().name
+            img = Image.open(Path(bot.bot_dir) / "avatars" / f"{name}.png").convert("RGBA")
+        except Exception:
+            continue
+        # face pixels are BLACK/WHITE; the rest is the background color
+        counts = [(n, c) for n, c in img.getcolors(1 << 16) if c not in (BLACK, WHITE)]
+        if counts:
+            return max(counts)[1]
+    return None
 
 
 def _cmd_avatar(args, chat_id, chat, bot):
@@ -496,7 +517,7 @@ def _cmd_avatar(args, chat_id, chat, bot):
     name = chat.get_basic_snapshot().name
     avatar_path = Path(bot.bot_dir) / "avatars" / f"{name}.png"
     avatar_path.parent.mkdir(exist_ok=True)
-    make_avatar(avatar_path, color=_dir_color(binding["cwd"]))
+    make_avatar(avatar_path, color=_dir_color(binding["cwd"], bot))
     chat.set_image(str(avatar_path))
     return f"new avatar for {binding['cwd']}"
 

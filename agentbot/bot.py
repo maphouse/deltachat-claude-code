@@ -123,6 +123,8 @@ class AgentBot:
             idle_timeout_min=self.config["idle_timeout_min"],
         )
         self._renderers: dict[int, ChatRenderer] = {}
+        # exact model id per chat, as last reported by its session
+        self.chat_models: dict[int, str] = {}
         saved = store.get_setting("continue_after_reset")
         self.continue_after_reset = (saved == "1") if saved is not None else self.config.get("continue_after_reset", False)
         self._continue_timers: dict[int, threading.Timer] = {}
@@ -183,10 +185,20 @@ class AgentBot:
             if etype == "assistant":
                 self._check_rate_limit(chat_id, event)
 
+        def on_model(resolved):
+            if self.chat_models.get(chat_id) == resolved:
+                return
+            self.chat_models[chat_id] = resolved
+            b = store.get_binding(chat_id)
+            if b:
+                self.update_chat_description(self.account.get_chat_by_id(chat_id),
+                                             b["session_id"], b["cwd"])
+
         session = Session(
             session_id=session_id, cwd=cwd, model=model,
             permission_mode=perm, effort=effort,
             resume=resume, on_event=on_event, system_prompt=system_prompt,
+            on_model=on_model,
         )
         self.session_manager.register(chat_id, session)
         return session
@@ -213,6 +225,8 @@ class AgentBot:
 
     def update_chat_description(self, chat, session_id: str, cwd: str):
         desc = f"session: {session_id}\ncwd: {cwd}"
+        if self.chat_models.get(chat.id):
+            desc += f"\nmodel: {self.chat_models[chat.id]}"
         chat_prompt = store.get_chat_prompt(chat.id)
         if chat_prompt:
             desc = f"{chat_prompt}\n\n{desc}"

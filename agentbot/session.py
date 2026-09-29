@@ -45,7 +45,8 @@ def control_ok(resp: dict | None) -> tuple[bool, dict, str]:
 class Session:
     def __init__(self, session_id: str, cwd: str, model: str,
                  permission_mode: str, effort: str = None,
-                 resume: bool = False, on_event=None, system_prompt: str = None):
+                 resume: bool = False, on_event=None, system_prompt: str = None,
+                 on_model=None):
         self.session_id = session_id
         self.cwd = cwd
         self.model = model
@@ -53,6 +54,10 @@ class Session:
         self.effort = effort
         self.system_prompt = system_prompt
         self.on_event = on_event
+        # exact model id the API reports (e.g. claude-opus-5-5), not the alias
+        self.resolved_model = None
+        self.on_model = on_model
+        self._catalog = None
         self.proc = None
         self._reader_thread = None
         self._lock = threading.Lock()
@@ -135,11 +140,15 @@ class Session:
 
                 if event.get("type") == "system" and event.get("subtype") == "init":
                     self.init_data = event
+                    self._note_model(event.get("model"))
                     log.info("session init: session_id=%s, model=%s",
                              event.get("session_id"), event.get("model"))
                     if event.get("session_id"):
                         self.session_id = event["session_id"]
                     self._init_event.set()
+
+                elif event.get("type") == "assistant":
+                    self._note_model((event.get("message") or {}).get("model"))
 
                 elif event.get("type") == "control_response":
                     # the CLI nests request_id inside "response", not at top level
@@ -161,6 +170,28 @@ class Session:
             log.info("reader loop ended for %s", self.session_id[:8])
             for ev in self._pending_controls.values():
                 ev.set()
+
+    def _note_model(self, model: str | None):
+        # "<synthetic>" marks CLI-generated messages, not a real model
+        if not model or model.startswith("<") or model == self.resolved_model:
+            return
+        self.resolved_model = model
+        if self.on_model:
+            try:
+                self.on_model(model)
+            except Exception:
+                log.exception("on_model handler error")
+
+    def model_catalog(self) -> list[dict]:
+        """Claude Code's model picker entries: value (alias), resolvedModel
+        (exact id), displayName. Only the initialize response carries these;
+        it's safe to send mid-session."""
+        if self._catalog is None:
+            ok, resp, _ = control_ok(self.control("initialize"))
+            if not ok:
+                return []
+            self._catalog = resp.get("models") or []
+        return self._catalog
 
     def _stderr_loop(self):
         try:

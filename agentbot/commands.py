@@ -159,32 +159,55 @@ CLEAR_MODEL = {"default", "auto", "settings", "-"}
 
 def _current_model(session, binding, bot):
     """What this chat is actually running on, or None if settings files decide."""
+    if session and session.resolved_model:
+        return session.resolved_model
     if session and session.model:
         return session.model
-    if session and session.init_data and session.init_data.get("model"):
-        return session.init_data["model"]
     return (binding.get("model") if binding else None) or bot.config["default_model"]
+
+
+def _catalog_entry(catalog, model):
+    """The picker entry for an alias or exact id, or None."""
+    for m in catalog:
+        if model in (m.get("value"), m.get("resolvedModel")):
+            return m
+    return None
+
+
+def _describe_model(catalog, model):
+    """'Opus 5.5 (claude-opus-5-5)' from an alias or id; the bare id if unknown."""
+    m = _catalog_entry(catalog, model)
+    if not m:
+        return model
+    name = m.get("displayName") or model
+    if m.get("value") == "default":
+        # "Default (recommended)" says nothing about which model it is
+        name = (m.get("description") or "").split(" · ")[0] or name
+    return f"{name} ({m.get('resolvedModel') or model})"
 
 
 def _cmd_model(args, chat_id, chat, bot):
     session = bot.session_manager.get(chat_id)
     binding = store.get_binding(chat_id)
+    live = session and session.alive
+    catalog = session.model_catalog() if live else []
 
     if not args:
         current = _current_model(session, binding, bot)
+        shown = _describe_model(catalog, current) if current else None
         if binding and binding.get("model"):
-            shown = f"{current} (chat override)"
+            shown = f"{shown} (chat override)"
         else:
-            shown = f"{current} (from the cwd's settings files)" if current else "from the cwd's settings files"
-        if session and session.init_data:
-            models = _get_init_list(session, "models")
-            lines = []
-            for m in models:
-                value, resolved = m.get("value", ""), m.get("resolvedModel", "")
-                marker = " ←" if current and (value == current or current in resolved) else ""
-                lines.append(f"  {m.get('displayName', value or '?')}{marker}")
-            if lines:
-                return f"model: {shown}\n" + "\n".join(lines)
+            shown = f"{shown} (from the cwd's settings files)" if shown else "from the cwd's settings files"
+        cur = _catalog_entry(catalog, current) if current else None
+        lines = []
+        for m in catalog:
+            if m.get("value") == "default":
+                continue
+            marker = " ←" if cur and m.get("resolvedModel") == cur.get("resolvedModel") else ""
+            lines.append(f"  {m.get('value')} — {m.get('displayName')} ({m.get('resolvedModel')}){marker}")
+        if lines:
+            return f"model: {shown}\n" + "\n".join(lines)
         return f"model: {shown}"
 
     model = args.split()[0]
@@ -193,12 +216,18 @@ def _cmd_model(args, chat_id, chat, bot):
         return ("model override cleared — the cwd's settings files decide "
                 "(takes effect on next session start)")
 
-    if session and session.alive:
+    if live:
         ok, _, err = control_ok(session.control("set_model", model=model))
         if ok:
             session.model = model
             store.update_binding(chat_id, model=model)
-            return f"model → {model}"
+            entry = _catalog_entry(catalog, model)
+            if entry and entry.get("resolvedModel"):
+                # the session only reports it on its next reply; show it now
+                session.resolved_model = entry["resolvedModel"]
+                bot.chat_models[chat_id] = entry["resolvedModel"]
+                bot.update_chat_description(chat, binding["session_id"], binding["cwd"])
+            return f"model → {_describe_model(catalog, model)}"
         return f"set_model failed: {err}"
     store.update_binding(chat_id, model=model)
     return f"model → {model} (takes effect on next session start)"

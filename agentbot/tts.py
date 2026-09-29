@@ -7,7 +7,7 @@ from pathlib import Path
 log = logging.getLogger("agentbot.tts")
 
 VOICES_DIR = Path(__file__).parent.parent / "voices"
-DEFAULT_VOICE = "en_US-lessac-medium"
+DEFAULT_VOICE = "en_US-lessac-high"
 
 _available = None
 NOT_INSTALLED = "__tts_not_installed__"

@@ -113,7 +113,7 @@ subprocesses it manages — each one is a full Node.js process.
 | Bot process | ~20 MB | Always resident while the service is running |
 | Each Claude Code session | ~300 MB | One per active chat; idle sessions are reaped |
 | faster-whisper (optional) | ~200 MB | Loaded per transcription, then released |
-| piper-tts (optional) | ~150 MB | Loaded per `/listen`, then released |
+| piper-tts (optional) | ~300 MB | Loaded per `/listen`, then released |
 
 With the default `max_live_sessions = 3`, peak usage is roughly **1 GB** (bot +
 3 sessions). Idle-reaped sessions release their memory; sending a new message

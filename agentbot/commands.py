@@ -8,7 +8,7 @@ from pathlib import Path
 from PIL import Image
 
 from . import store
-from .avatar import BLACK, WHITE, color_for_path, make_avatar
+from .avatar import BLACK, WHITE, color_for_path, make_avatar, random_color
 from .session import control_ok
 
 log = logging.getLogger("agentbot.commands")
@@ -541,7 +541,17 @@ def _cmd_avatar(args, chat_id, chat, bot):
     name = chat.get_basic_snapshot().name
     avatar_path = Path(bot.bot_dir) / "avatars" / f"{name}.png"
     avatar_path.parent.mkdir(exist_ok=True)
-    make_avatar(avatar_path, color=_dir_color(binding["cwd"], bot))
+    real = os.path.realpath(os.path.expanduser(binding["cwd"]))
+    shares_dir = any(b["chat_id"] != chat_id
+                     and os.path.realpath(os.path.expanduser(b["cwd"])) == real
+                     for b in store.all_bindings())
+    if shares_dir:
+        color = _dir_color(binding["cwd"], bot)
+    else:
+        # the only chat in this dir: nothing to match, so re-roll the color too
+        color = random_color()
+        store.set_setting("avatar_color:" + real, bytes(color[:3]).hex())
+    make_avatar(avatar_path, color=color)
     chat.set_image(str(avatar_path))
     return f"new avatar for {binding['cwd']}"
 

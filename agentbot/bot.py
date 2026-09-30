@@ -11,7 +11,7 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from deltachat_rpc_client import Client, DeltaChat, Rpc, events
-from deltachat_rpc_client.const import SpecialContactId
+from deltachat_rpc_client.const import ChatType, SpecialContactId
 from deltachat_rpc_client.events import EventType
 
 from . import annotate, commands, store
@@ -158,6 +158,11 @@ class AgentBot:
             self._fingerprints[contact.id] = _key_fingerprint(contact)
         return self._fingerprints[contact.id] in self.config["admin_fingerprints"]
 
+    @staticmethod
+    def _is_group(chat) -> bool:
+        """Any chat but a 1:1 — the chats where more than one person may speak."""
+        return chat.get_basic_snapshot().chat_type != ChatType.SINGLE
+
     def get_renderer(self, chat_id: int) -> ChatRenderer | None:
         return self._renderers.get(chat_id)
 
@@ -215,7 +220,11 @@ class AgentBot:
             facts.append(f"This chat is named \"{name}\".")
         if store.is_shared(chat_id):
             facts.append("This chat is shared: messages may come from people other than "
-                         "the owner, and you can't tell who sent which.")
+                         "the owner.")
+        if self._is_group(self.account.get_chat_by_id(chat_id)):
+            facts.append("Each message starts with [from: <name> (owner|guest)]. The "
+                         "owner/guest status is verified by encryption key; the name is "
+                         "chosen by the sender and may be spoofed.")
         if facts:
             parts.append(" ".join(facts))
         chat_prompt = store.get_chat_prompt(chat_id)
@@ -391,7 +400,8 @@ class AgentBot:
 
     def handle_message(self, event):
         snapshot = event.message_snapshot
-        sender = snapshot.sender.get_snapshot().address
+        sender_snap = snapshot.sender.get_snapshot()
+        sender = sender_snap.address
         text = (snapshot.text or "").strip()
         chat = snapshot.chat
         chat_id = chat.id
@@ -436,6 +446,10 @@ class AgentBot:
 
         if quoted and text:
             text = f"[replying to: \"{quoted}\"]\n{text}"
+
+        if text and self._is_group(chat):
+            role = "owner" if owner else "guest"
+            text = f"[from: {sender_snap.display_name} ({role})]\n{text}"
 
         if text:
             if text.startswith("!"):

@@ -45,7 +45,7 @@ prompting. See [why](#why) this is the best way to interact with Claude Code.
   of output.
 
 - **Project-based chats.** Use `/commission <name> <directory>` to create a dedicated group
-  chat for a project in a given folder. Each commissioned chat gets its own session and identicon avatar (random pattern, color shared by chats in the same folder; `/avatar` regenerates it), and can carry its own system prompt and model on top of the folder's `CLAUDE.md` and settings.
+  chat for a project in a given folder. Each commissioned chat gets its own session and identicon avatar (random pattern, color shared by chats in the same folder; `/avatar` regenerates the pattern, `/avatar color` picks a new folder color), and can carry its own system prompt and model on top of the folder's `CLAUDE.md` and settings.
 
 - **Vibe code with friends.** The bot is a Delta Chat contact like any other, and a commissioned group chat is just a group chat. Add your other contacts to a chat with the agent and work on a project together (see [Sharing chats with guests](#sharing-chats-with-guests)).
 
@@ -186,7 +186,7 @@ slash commands work.
 
 Use `/commission <name> [dir]` to create a dedicated group chat for a project.
 Each commissioned chat gets its own session, working directory, and randomly
-generated identicon avatar. Commissioned chats start out shared with all chat members (see below), and everyone in the chat
+generated identicon avatar, in a color shared by every chat in the same folder. Commissioned chats start out shared with all chat members (see below), and everyone in the chat
 you ran `/commission` from is added to the new group.
 
 Several chats can point at the same directory, so a chat can also carry its own frame:
@@ -224,7 +224,7 @@ else is a guest, and the bot only answers a guest in a chat an owner has shared:
   gets them nothing. Adding an owner to their own group doesn't work either — an owner
   has to run `/share` there.
 - Guests can use `/stop`, `/clear`, `/model`, `/effort`, `/verbose`, `/usage`, `/help`,
-  `/listen` and `/annotate`. Every other bot command is owner-only. Claude Code's own slash commands
+  `/listen`, `/annotate` and `/avatar` (but not `/avatar color`, which repaints other chats). Every other bot command is owner-only. Claude Code's own slash commands
   (e.g. `/compact`) pass through as usual.
 - `/annotate` notes arrive as webxdc updates, which don't carry a sender, so the bot
   only accepts them in chats where every member could use the bot anyway: all
@@ -266,6 +266,8 @@ These commands control the Claude Code session from inside a persistent chat.
 | `/send <path>` | Send a file (image, PDF, etc.) from the server to this chat |
 | `/listen` | Reply to a message to hear it as audio (TTS) |
 | `/annotate` | Reply to a message to annotate it word by word in an in-chat app |
+| `/avatar` | New random avatar pattern for this chat, in its folder's color |
+| `/avatar color` | New color for this chat's folder; repaints every chat there, keeping their patterns (owner-only) |
 | `/help` | All bot commands plus Claude Code's own command list |
 
 

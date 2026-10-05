@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Provision the agentbot Delta Chat account: chatmail address, pixel avatar,
+"""Provision the agentbot Delta Chat account: chatmail address, logo avatar,
 systemd service. Run once."""
 import os
 import shutil
@@ -9,12 +9,11 @@ from pathlib import Path
 
 from deltachat_rpc_client import DeltaChat, Rpc
 
-from agentbot.avatar import make_avatar
-
 BOT_DIR = Path.cwd()
 RPC_SERVER_PATH = shutil.which("deltachat-rpc-server") or "deltachat-rpc-server"
 PYTHON = sys.executable
 CHATMAIL_QR = "DCACCOUNT:https://chtml.ca/new"
+LOGO = Path(__file__).parent / "logo.png"
 
 
 def provision():
@@ -26,7 +25,7 @@ def provision():
         account.set_config_from_qr(CHATMAIL_QR)
         account.configure()
         account.set_config("displayname", "agentbot")
-        account.set_avatar(str(BOT_DIR / "avatar.png"))
+        account.set_avatar(str(LOGO))
         return account.get_config("addr"), account.get_qr_code()
 
 
@@ -69,9 +68,6 @@ def install_service():
 def main():
     if (BOT_DIR / "accounts").exists() and any((BOT_DIR / "accounts").iterdir()):
         sys.exit("accounts/ already populated — provision has already run")
-
-    print("generating avatar...")
-    make_avatar(BOT_DIR / "avatar.png")
 
     print("provisioning on chatmail relay...")
     addr, qr = provision()

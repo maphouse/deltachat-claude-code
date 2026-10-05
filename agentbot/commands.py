@@ -28,7 +28,7 @@ def classify(text: str) -> tuple[str, str] | None:
     return m.group(1).lower(), (m.group(2) or "").strip()
 
 
-_CTX_COMMANDS = {"listen", "annotate", "commission", "share", "prompt"}
+_CTX_COMMANDS = {"listen", "annotate", "commission", "share", "prompt", "system-prompt"}
 
 # Commands a guest (non-owner in a shared chat) may run. Everything else in
 # HANDLERS is owner-only; unknown /commands still pass through to Claude Code.
@@ -372,7 +372,8 @@ def _cmd_help(args, chat_id, chat, bot):
         "",
         "settings:",
         "  /model [name|default] — show/set this chat's model (default = cwd's settings files)",
-        "  /prompt ['text'|clear] — show/set this chat's system prompt (owner-only)",
+        "  /prompt ['text'|clear] — show/set this chat's system prompt (owner-only;",
+        "                       alias /system-prompt)",
         "  /mode [name]       — show/cycle/set permission mode",
         "  /cwd [path]        — show/change working directory",
         "  /effort [level]    — show/set effort level",
@@ -711,6 +712,7 @@ HANDLERS = {
     "commission": _cmd_commission,
     "avatar": _cmd_avatar,
     "prompt": _cmd_prompt,
+    "system-prompt": _cmd_prompt,
     "share": _cmd_share,
     "unshare": _cmd_unshare,
     "maxsessions": _cmd_maxsessions,

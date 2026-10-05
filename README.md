@@ -250,7 +250,7 @@ These commands control the Claude Code session from inside a persistent chat.
 | Command | What it does |
 |---|---|
 | `/model [name\|default]` | Show or set this chat's model (sonnet, opus, haiku, fable, or full ID); `default` defers to the directory's settings |
-| `/prompt ['text'\|clear]` | Show or set this chat's system prompt, applied from the next `/clear` or `/new` (owner-only) |
+| `/prompt ['text'\|clear]` | Show or set this chat's system prompt (alias `/system-prompt`), applied from the next `/clear` or `/new` (owner-only) |
 | `/mode [name]` | Show, set, or cycle permission mode |
 | `/cwd [path]` | Show or change working directory |
 | `/effort [level]` | Show or set effort (low, medium, high, xhigh, max) |

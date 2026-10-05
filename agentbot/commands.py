@@ -8,7 +8,7 @@ from pathlib import Path
 from PIL import Image
 
 from . import store
-from .avatar import BLACK, WHITE, color_for_path, make_avatar, random_color, read_face
+from .avatar import BLACK, WHITE, color_for_path, make_avatar, random_color
 from .session import control_ok
 
 log = logging.getLogger("agentbot.commands")
@@ -42,8 +42,6 @@ def handle(cmd: str, args: str, chat_id: int, chat, bot, owner: bool = True,
     if handler:
         if not owner and cmd not in GUEST_COMMANDS:
             return f"/{cmd} is owner-only"
-        if not owner and cmd == "avatar" and args.strip() == "color":
-            return "/avatar color is owner-only — it repaints other chats too"
         if cmd in _CTX_COMMANDS:
             return handler(args, chat_id, chat, bot, **ctx)
         return handler(args, chat_id, chat, bot)
@@ -391,7 +389,6 @@ def _cmd_help(args, chat_id, chat, bot):
         "  /commission <name> [dir] [--model m] [--system-prompt 'text']",
         "                     — new shared chat for a project",
         "  /avatar            — new random avatar shape (color = this dir's)",
-        "  /avatar color      — new color for this dir, repaints all its chats",
         "  /help              — this message",
         "",
         "sharing:",
@@ -399,8 +396,7 @@ def _cmd_help(args, chat_id, chat, bot):
         "  /unshare           — back to owners only",
         "",
         "guests (non-owners in a shared chat) can use /stop /clear /model",
-        "/effort /verbose /usage /help /listen /avatar (not /avatar color); the rest",
-        "are owner-only.",
+        "/effort /verbose /usage /help /listen /avatar; the rest are owner-only.",
         "any other /command is passed through to Claude Code.",
     ]
     session = bot.session_manager.get(chat_id)
@@ -543,10 +539,6 @@ def _cmd_avatar(args, chat_id, chat, bot):
     binding = store.get_binding(chat_id)
     if not binding:
         return "no session bound to this chat"
-    if args.strip() == "color":
-        return _recolor_dir(binding["cwd"], bot)
-    if args.strip():
-        return "usage: /avatar  or  /avatar color"
     name = chat.get_basic_snapshot().name
     avatar_path = Path(bot.bot_dir) / "avatars" / f"{name}.png"
     avatar_path.parent.mkdir(exist_ok=True)
@@ -563,33 +555,6 @@ def _cmd_avatar(args, chat_id, chat, bot):
     make_avatar(avatar_path, color=color)
     chat.set_image(str(avatar_path))
     return f"new avatar for {binding['cwd']}"
-
-
-def _recolor_dir(cwd: str, bot) -> str:
-    """New color for a directory; every chat bound to it is repainted,
-    keeping its face."""
-    real = os.path.realpath(os.path.expanduser(cwd))
-    color = random_color()
-    store.set_setting("avatar_color:" + real, bytes(color[:3]).hex())
-    painted, failed = [], []
-    for b in store.all_bindings():
-        if os.path.realpath(os.path.expanduser(b["cwd"])) != real:
-            continue
-        try:
-            group = bot.account.get_chat_by_id(b["chat_id"])
-            name = group.get_basic_snapshot().name
-            avatar_path = Path(bot.bot_dir) / "avatars" / f"{name}.png"
-            face = read_face(avatar_path) if avatar_path.exists() else None
-            make_avatar(avatar_path, color=color, face=face)
-            group.set_image(str(avatar_path))
-            painted.append(name)
-        except Exception:
-            log.warning("recolor of chat %d failed", b["chat_id"], exc_info=True)
-            failed.append(str(b["chat_id"]))
-    msg = f"new color for {cwd}: " + ", ".join(painted)
-    if failed:
-        msg += f" (couldn't repaint chat {', '.join(failed)})"
-    return msg
 
 
 def _cmd_prompt(args, chat_id, chat, bot, sender=None, **_kw):

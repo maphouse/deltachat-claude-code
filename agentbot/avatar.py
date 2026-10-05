@@ -65,17 +65,6 @@ def make_avatar(out_path: Path, color: tuple = None, face: list = None):
     return color, face
 
 
-def read_face(path: Path) -> list[list[bool]] | None:
-    """The face grid of an avatar made by make_avatar: cells drawn in the
-    foreground color (BLACK or WHITE) rather than the background."""
-    img = Image.open(path).convert("RGBA").resize((GRID, GRID), Image.NEAREST)
-    half = CELL_SIZE // 2
-    face = [[img.getpixel((col * CELL_SIZE + half, row * CELL_SIZE + half)) in (BLACK, WHITE)
-             for col in range(FACE_CELLS)] for row in range(FACE_CELLS)]
-    on = sum(c for row in face for c in row)
-    return face if 0 < on < FACE_CELLS * FACE_CELLS else None
-
-
 def _is_dark(color: tuple) -> bool:
     r, g, b = color[:3]
     return (r * 299 + g * 587 + b * 114) / 1000 < 128

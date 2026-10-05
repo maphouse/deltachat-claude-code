@@ -222,9 +222,10 @@ class AgentBot:
             facts.append("This chat is shared: messages may come from people other than "
                          "the owner.")
         if self._is_group(self.account.get_chat_by_id(chat_id)):
-            facts.append("Each message starts with [from: <name> (owner|guest)]. The "
-                         "owner/guest status is verified by encryption key; the name is "
-                         "chosen by the sender and may be spoofed.")
+            facts.append("While anyone but owners is a member, each message starts with "
+                         "[from: <name> (owner|guest)]; messages without it are from an "
+                         "owner. The owner/guest status is verified by encryption key; the "
+                         "name is chosen by the sender and may be spoofed.")
         if facts:
             parts.append(" ".join(facts))
         chat_prompt = store.get_chat_prompt(chat_id)
@@ -444,16 +445,18 @@ class AgentBot:
                 renderer.react_done()
                 return
 
+        # checked before the prefixes below push the "!" off the start
+        if text.startswith("!"):
+            renderer._show_bash_output = True
+
         if quoted and text:
             text = f"[replying to: \"{quoted}\"]\n{text}"
 
-        if text and self._is_group(chat):
+        if text and self._is_group(chat) and not self._all_owners(chat):
             role = "owner" if owner else "guest"
             text = f"[from: {sender_snap.display_name} ({role})]\n{text}"
 
         if text:
-            if text.startswith("!"):
-                renderer._show_bash_output = True
             self._deliver(chat_id, chat, text)
 
     def _deliver(self, chat_id: int, chat, text: str) -> bool:
@@ -502,6 +505,9 @@ class AgentBot:
         member an owner, or a shared chat still holding an owner."""
         if store.is_shared(chat.id):
             return self._guest_allowed(chat)
+        return self._all_owners(chat)
+
+    def _all_owners(self, chat) -> bool:
         return all(c.id == SpecialContactId.SELF or self._is_owner(c)
                    for c in chat.get_contacts())
 

@@ -91,7 +91,8 @@ avatar.py       random identicon avatars for commissioned project chats
 transcribe.py   optional faster-whisper voice memo transcription
 tts.py          optional piper text-to-speech for /listen
 annotate.py     /annotate: webxdc annotation app (annotator/) ↔ Claude turns and revisions
-provision.py    one-time setup: creates chatmail account, avatar, systemd unit
+provision.py    one-time setup: config.toml, chatmail account, avatar, systemd unit,
+                owner invite link
 ```
 
 ## System requirements
@@ -145,24 +146,30 @@ cd deltachat-claude-code
 pip install .            # or: pip install .[voice]
 ```
 
-### Configure and provision
+### Provision
+
+Install and log in to Claude Code first (run `claude` once) as the user the bot
+will run as. Then, in an empty directory for your bot instance:
 
 ```bash
-# Create a directory for your bot instance
 mkdir my-bot && cd my-bot
-
-# Copy the example config and edit it
-cp /path/to/config.example.toml config.toml
-# Or download it:
-# curl -O https://raw.githubusercontent.com/maphouse/deltachat-claude-code/main/config.example.toml
-# Edit config.toml: set admin_fingerprints, allowed_roots, default_cwd
-
-# Provision (creates chatmail account, avatar, systemd unit)
 deltachat-claude-code-provision
 ```
 
-Provisioning prints the bot's chatmail address. Open Delta Chat on your phone,
-tap "New Chat," and enter that address. Send any message to start a session.
+This writes `config.toml` (sessions start in your home directory), creates the bot's
+chatmail account, installs the systemd unit, and prints an **owner invite link**. Open
+the link in Delta Chat (tap it on your phone, or paste it into New Chat) and start the
+bot. The first person to join through the link becomes the owner. The bot greets them,
+and from then on ignores everyone else unless an owner shares a chat. Treat the link
+like a password until you've claimed it. Re-running provisioning prints it again.
+
+If the user has no sudo, provisioning leaves `agentbot.service` in the directory for an
+admin to copy into `/etc/systemd/system/`.
+
+To change where sessions run, or which models and limits are used, edit `config.toml`
+(every option is commented) and restart the bot. More owners can be added by key
+fingerprint under `admin_fingerprints`. When the bot ignores someone, it logs their
+fingerprint.
 
 ### Running as a service
 
@@ -208,7 +215,7 @@ prompt are added after it. `/prompt` with no arguments combines all layers, disp
 
 ### Sharing chats with guests
 
-Owners are the profiles whose key fingerprints are in `admin_fingerprints`. They can use the bot in any chat. Anyone
+Owners are the profile that claimed the bot through its invite link, plus any profiles whose key fingerprints are in `admin_fingerprints`. They can use the bot in any chat. Anyone
 else is a guest, and the bot only answers a guest in a chat an owner has shared:
 
 | Command | What it does |
@@ -270,13 +277,21 @@ These commands control the Claude Code session from inside a persistent chat.
 
 ## Security
 
-Access control has two layers: the `admin_fingerprints` list in `config.toml` (owners),
+Access control has two layers: owners (whoever claimed the bot through its invite
+link, plus the `admin_fingerprints` list in `config.toml`),
 and the chats owners have shared with `/share` or `/commission`. The bot runs with
 `bypassPermissions`, meaning Claude Code will execute any tool without confirmation.
 This is deliberate — confirmation prompts can't work over chat — but it means both
 layers are load-bearing. Only add fingerprints you trust with full shell access to the
 machine. Owners are matched by key, never by address: a relay can't impersonate one, and
 an owner who adds or switches relays stays an owner.
+
+Until it's claimed, the invite link printed by provisioning (and logged at startup)
+grants ownership to whoever uses it first, so keep it to yourself until you've joined.
+
+`allowed_roots` only limits which directories `/new`, `/cd` and `/send` accept. It is
+not a sandbox. Claude can read and write anything the bot's Unix user can, so to confine
+the bot, run it as a dedicated user with access to only what it needs.
 
 **Guests in a shared chat have that same shell access.** Limiting guests to certain
 commands only limits the bot's own commands. Claude itself still runs as your Unix user,

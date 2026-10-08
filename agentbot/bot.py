@@ -85,6 +85,11 @@ def _key_fingerprint(contact) -> str | None:
         return None
     return hashlib.sha1(b"\x99" + n.to_bytes(2) + body).hexdigest().upper()
 
+def _claimed_owners() -> set[str]:
+    """Fingerprints that claimed the bot through its invite link."""
+    return {fp for fp in (store.get_setting("owner_fingerprints") or "").split(",") if fp}
+
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s [%(name)s] %(message)s",
@@ -118,6 +123,7 @@ class AgentBot:
         self.account = None
         self.config = self._load_config()
         store.init_db()
+        self.config["admin_fingerprints"] |= _claimed_owners()
         self.session_manager = SessionManager(
             max_live=self.config["max_live_sessions"],
             idle_timeout_min=self.config["idle_timeout_min"],
@@ -135,16 +141,24 @@ class AgentBot:
         self._fingerprints: dict[int, str | None] = {}
 
     def _load_config(self) -> dict:
-        with open(BOT_DIR / "config.toml", "rb") as f:
-            cfg = tomllib.load(f)
+        try:
+            with open(BOT_DIR / "config.toml", "rb") as f:
+                cfg = tomllib.load(f)
+        except FileNotFoundError:
+            raise SystemExit(f"no config.toml in {BOT_DIR} — run "
+                             "deltachat-claude-code-provision here first")
+        home = os.path.expanduser("~")
+        for key, value in {"allowed_roots": [home], "default_cwd": home,
+                           "default_permission_mode": "bypassPermissions",
+                           "max_live_sessions": 3, "idle_timeout_min": 30,
+                           "verbose_tools": True}.items():
+            cfg.setdefault(key, value)
         # an empty default_model means "don't pass --model at all", letting the
         # cwd's .claude/settings*.json decide; None is how that travels
         cfg["default_model"] = cfg.get("default_model") or None
         cfg.setdefault("preamble", DEFAULT_PREAMBLE)
         cfg["admin_fingerprints"] = {fp.replace(" ", "").upper()
                                      for fp in cfg.get("admin_fingerprints", [])}
-        if not cfg["admin_fingerprints"]:
-            log.error("no admin_fingerprints in config.toml — nobody can use the bot")
         if "admin_addresses" in cfg:
             log.warning("admin_addresses is no longer used; owners are admin_fingerprints only")
         return cfg
@@ -409,8 +423,8 @@ class AgentBot:
 
         owner = self._is_owner(snapshot.sender)
         if not owner and not self._guest_allowed(chat):
-            log.warning("ignoring %s in chat %d (not an owner, chat not shared)",
-                        sender, chat_id)
+            log.warning("ignoring %s (key %s) in chat %d (not an owner, chat not shared)",
+                        sender, self._fingerprints.get(snapshot.sender.id), chat_id)
             return
 
         if not text and not snapshot.file:
@@ -575,6 +589,25 @@ class AgentBot:
         suffix = f"\n[attached: {dst}]"
         return (text + suffix) if text else f"[attached: {dst}]"
 
+    def handle_securejoin(self, event):
+        """While the bot has no owner, the first person to join through its
+        invite link claims it. The link is only ever printed to the operator
+        (provisioning, the log), so holding it is the proof of ownership."""
+        if event.progress != 1000 or self.config["admin_fingerprints"]:
+            return
+        contact = self.account.get_contact_by_id(event.contact_id)
+        fp = _key_fingerprint(contact)
+        if not fp:
+            return
+        claimed = _claimed_owners() | {fp}
+        store.set_setting("owner_fingerprints", ",".join(sorted(claimed)))
+        self.config["admin_fingerprints"] |= claimed
+        self._fingerprints[contact.id] = fp
+        log.info("owner claimed by %s (key %s)", contact.get_snapshot().address, fp)
+        contact.create_chat().send_text(
+            "You're this bot's owner now. Send any message to start a Claude Code "
+            "session, or /help for commands.")
+
     def run(self):
         log.info("starting agentbot")
         with Rpc(accounts_dir=ACCOUNTS_DIR, rpc_server_path=RPC_SERVER_PATH) as rpc:
@@ -586,11 +619,17 @@ class AgentBot:
             account = accounts[0]
             log.info("running as %s", account.get_config("addr"))
             self.account = account
+            if not self.config["admin_fingerprints"]:
+                log.warning("no owner yet — the first person to open this invite "
+                            "link in Delta Chat becomes the owner: %s",
+                            account.get_qr_code())
             client = Client(
                 account,
                 hooks=[(self.handle_message, events.NewMessage(is_info=False)),
                        (self.handle_webxdc_update,
-                        events.RawEvent(EventType.WEBXDC_STATUS_UPDATE))],
+                        events.RawEvent(EventType.WEBXDC_STATUS_UPDATE)),
+                       (self.handle_securejoin,
+                        events.RawEvent(EventType.SECUREJOIN_INVITER_PROGRESS))],
             )
             client.run_forever()
 

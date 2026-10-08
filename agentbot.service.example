@@ -7,6 +7,8 @@ Wants=network-online.target
 Type=simple
 User=youruser
 Environment=HOME=/home/youruser
+# so the bot finds `claude` (e.g. ~/.local/bin)
+Environment=PATH=/home/youruser/.local/bin:/usr/local/bin:/usr/bin:/bin
 WorkingDirectory=/path/to/deltachat-claude-code
 ExecStart=/path/to/venv/bin/python3 -m agentbot
 Restart=on-failure

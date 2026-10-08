@@ -2,6 +2,7 @@ import glob
 import logging
 import os
 import re
+import socket
 import uuid
 from pathlib import Path
 
@@ -46,7 +47,7 @@ def handle(cmd: str, args: str, chat_id: int, chat, bot, owner: bool = True,
             return handler(args, chat_id, chat, bot, **ctx)
         return handler(args, chat_id, chat, bot)
     if cmd in BLOCKED:
-        return f"/{cmd} requires a TTY — use `ssh thinkpad -t 'claude'` instead."
+        return f"/{cmd} requires a TTY — use `ssh {socket.gethostname()} -t 'claude'` instead."
     return None
 
 
@@ -104,7 +105,7 @@ def _cmd_exit(args, chat_id, chat, bot):
     store.delete_binding(chat_id)
     lines = [
         f"session ended · {turns} turns · ~${cost:.2f}",
-        f"Terminal:  ssh thinkpad -t 'cd {cwd} && claude --resume {sid}'",
+        f"Terminal:  ssh {socket.gethostname()} -t 'cd {cwd} && claude --resume {sid}'",
         f"Here:     /resume {sid}",
     ]
     return "\n".join(lines)

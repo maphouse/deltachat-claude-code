@@ -576,7 +576,7 @@ class AgentBot:
                 snapshot.chat.send_text(
                     "🎤 Can't transcribe voice memos yet — faster-whisper "
                     "isn't installed. On the bot's machine, run:\n"
-                    f"  {sys.executable} -m pip install faster-whisper\n"
+                    f"  {sys.executable} -m pip install faster-whisper 'av<19'\n"
                     "then restart the bot. For now, please type your message."
                 )
             else:

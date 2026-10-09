@@ -4,6 +4,7 @@ import logging
 import os
 import re
 import shutil
+import sys
 import threading
 import tomllib
 import uuid
@@ -573,11 +574,10 @@ class AgentBot:
                 return (prefix + "\n\n" + text) if text else prefix
             if transcript == NOT_INSTALLED:
                 snapshot.chat.send_text(
-                    "🎤 Voice memo received but I can't transcribe it — "
-                    "faster-whisper is not installed.\n\n"
-                    "To enable voice transcription, install it in the bot's venv:\n"
-                    "  pip install -r requirements-voice.txt\n\n"
-                    "Then restart the bot. In the meantime, please type your message."
+                    "🎤 Can't transcribe voice memos yet — faster-whisper "
+                    "isn't installed. On the bot's machine, run:\n"
+                    f"  {sys.executable} -m pip install faster-whisper\n"
+                    "then restart the bot. For now, please type your message."
                 )
             else:
                 snapshot.chat.send_text(
